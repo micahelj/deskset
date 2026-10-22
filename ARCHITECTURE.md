@@ -12,7 +12,9 @@ Ownership map:
   `rgb.py` (effects, OpenRGB SDK on 127.0.0.1:6742, backend selection),
   `hidrgb.py` (direct per-key HID RGB for the Apex Pro TKL Gen 3),
   `oled.py` (USB HID interface 1), `cheatsheet.py` (keybinding cheat sheet
-  from `omarchy menu keybindings --print`), `workspaces.py` (Hyprland socket2
+  from `omarchy menu keybindings --print`), `sysmon.py` and `gpu.py` (CPU,
+  memory, temperature and NVIDIA stats for the system / gpu pages),
+  `workspaces.py` (Hyprland socket2
   workspace state), `claude.py` (Claude Code hook state
   and session summary for the `claude` OLED page), `wheel.py`, `hypr.py`
   (Hyprland integration), `mpris.py` (media titles for the OLED),

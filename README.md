@@ -86,7 +86,8 @@ Unplug/replug the keyboard if it still cannot open the device.
 ## Use it
 
 Click the **Apex Keyboard** widget in the bar (right section) to open the
-panel: RGB effects, OLED pages (clock, media, workspace, logo, Claude), and
+panel: RGB effects, OLED pages (clock, media, workspace, logo, Claude,
+system, GPU), and
 wheel modes.
 
 CLI examples:
@@ -121,6 +122,23 @@ Change the colours with `"workspace_colors"` under `"rgb"` in
 Omarchy theme's `colors.toml` (such as `"accent"` or `"green"`). Saturated
 colours read best: LEDs wash pastels toward white. Turn the feature off with
 `"workspace_keys": false`.
+
+## System monitor
+
+The **system** OLED page shows three rows, each with a value and about a
+minute of history as a small graph, and switches between two views every
+6 seconds:
+
+- **CPU:** CPU load, memory in use (reclaimable cache counts as free) and
+  CPU temperature (Intel `coretemp`, AMD `k10temp`, or the ACPI sensor).
+- **GPU:** NVIDIA GPU load, video memory and temperature, via `nvidia-smi`.
+
+Pick **gpu** instead to keep the GPU view on screen. The GPU is only polled
+while a GPU view is showing, and a suspended GPU is never woken: the system
+page skips it and the gpu page says `GPU asleep`. While the GPU is being
+polled it cannot runtime-suspend, so on a laptop running on battery choose
+another page when you do not need it. Other GPU vendors are not supported
+yet; the system page then shows only the CPU view.
 
 ## Keybinding cheat sheet
 
