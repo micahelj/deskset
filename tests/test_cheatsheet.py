@@ -32,6 +32,16 @@ class Parsing(unittest.TestCase):
         self.assertIn(((), "Print Screen", "Screenshot"), parsed)
         self.assertEqual(len(parsed), 8)  # mouse_down and XF86AudioMute dropped
 
+    def test_keys_the_keyboard_lacks_are_skipped(self):
+        parsed = cs.parse(SAMPLE, absent=("Print Screen",))
+        self.assertNotIn("Print Screen", [led for _m, led, _d in parsed])
+        self.assertEqual(len(parsed), 7)
+
+    def test_gen3_profile_lacks_the_print_screen_cluster(self):
+        from apex import devices
+        gen3 = next(p for p in devices.PROFILES if p.product == 0x1642)
+        self.assertEqual(set(gen3.absent), {"Print Screen", "Scroll Lock", "Pause/Break"})
+
     def test_super_set_comes_first(self):
         sets = cs.groups(cs.parse(SAMPLE))
         self.assertEqual(sets[0][0], ("SUPER",))

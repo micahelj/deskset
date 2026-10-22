@@ -65,8 +65,11 @@ def category(description):
     return "apps"
 
 
-def parse(text):
-    """Lines of `MODS + KEY → description` -> list of (mods tuple, led name, description)."""
+def parse(text, absent=()):
+    """Lines of `MODS + KEY → description` -> list of (mods tuple, led name, description).
+
+    Bindings on keys in `absent` (ones this keyboard physically lacks) are dropped.
+    """
     out = []
     for line in text.splitlines():
         if "→" not in line:
@@ -78,7 +81,7 @@ def parse(text):
         else:
             mods, key = (), combo
         led = KEY_TO_LED.get(key.strip().upper())
-        if led and led in LEDS:
+        if led and led in LEDS and led not in absent:
             out.append((mods, led, desc))
     return out
 
@@ -100,12 +103,15 @@ def groups(bindings):
     return [(mods, sorted(by_mods[mods], key=position)) for mods in order]
 
 
-def load(command=LIST_COMMAND):
+def load(command=LIST_COMMAND, absent=None):
+    if absent is None:
+        from . import devices
+        absent = devices.current().absent
     try:
         text = subprocess.run(command, capture_output=True, text=True, timeout=5).stdout
     except (OSError, subprocess.SubprocessError):
         return []
-    return groups(parse(text))
+    return groups(parse(text, absent))
 
 
 class CheatSheet:

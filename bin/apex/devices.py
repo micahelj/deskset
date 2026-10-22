@@ -22,12 +22,17 @@ class Profile:
     oled: str
     rgb: str
     control_interface: int = 1
+    # layout.LEDS names this keyboard physically lacks.
+    absent: tuple = ()
 
 
 PROFILES = (
     Profile(0x1618, "SteelSeries Apex 7 TKL", "Apex 7 TKL", "apex7", "openrgb"),
     Profile(0x1612, "SteelSeries Apex 7", "Apex 7", "apex7", "openrgb"),
-    Profile(0x1642, "SteelSeries Apex Pro TKL Gen 3", "Apex Pro Gen 3", "gen3", "hid"),
+    # No Print Screen / Scroll Lock / Pause cluster: confirmed on hardware by
+    # lighting each nav-cluster key in a distinct colour.
+    Profile(0x1642, "SteelSeries Apex Pro TKL Gen 3", "Apex Pro Gen 3", "gen3", "hid",
+            absent=("Print Screen", "Scroll Lock", "Pause/Break")),
 )
 
 DEFAULT = PROFILES[0]
