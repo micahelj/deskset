@@ -122,6 +122,36 @@ Omarchy theme's `colors.toml` (such as `"accent"` or `"green"`). Saturated
 colours read best: LEDs wash pastels toward white. Turn the feature off with
 `"workspace_keys": false`.
 
+## Keybinding cheat sheet
+
+`apexctl cheatsheet` lights every key bound under one modifier set, so you
+can see your Hyprland shortcuts on the keyboard itself:
+
+| Colour | Bindings |
+|---|---|
+| green | workspaces |
+| yellow | windows (focus, resize, float, close, …) |
+| magenta | system (menus, clipboard, notifications, …) |
+| cyan | apps |
+| white | the modifier keys of the current set |
+
+Unbound keys go dark. Scroll the wheel to step through the bindings in
+keyboard order: the selected key pulses and the OLED shows the key and what
+it does. Click the wheel for the next modifier set (Super, Super + Ctrl,
+Super + Shift, …). Run the command again, or leave it alone for 30 seconds,
+to close it; the wheel then goes back to its normal mode.
+
+Bind it to a shortcut in `~/.config/hypr/bindings.lua` (use your own path):
+
+```lua
+o.bind("SUPER + CTRL + SLASH", "Keyboard cheat sheet", "/home/YOU/.local/bin/apexctl cheatsheet")
+```
+
+Bindings come from `omarchy menu keybindings --print`, so the cheat sheet
+always reflects your current config. Mouse and media-key bindings have no
+key to light and are skipped, as are keys your keyboard lacks (the Apex Pro
+TKL Gen 3 has no Print Screen, Scroll Lock or Pause).
+
 ## Claude Code activity
 
 The **claude** OLED page shows what [Claude Code](https://claude.com/claude-code)
