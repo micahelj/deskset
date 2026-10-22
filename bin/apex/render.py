@@ -177,10 +177,10 @@ def claude_page(summary, usage=None, t=0.0):
         _blit_text(draw, (46, 15), detail, FONT_SM)
 
     if usage is not None:
-        draw.rectangle([46, 34, 125, 37], outline=255)
+        draw.rectangle([46, 35, 125, 38], outline=255)
         fill = int(77 * max(0.0, min(1.0, usage)))
         if fill:
-            draw.rectangle([47, 35, 47 + fill - 1, 36], fill=255)
+            draw.rectangle([47, 36, 47 + fill - 1, 37], fill=255)
     return im
 
 
