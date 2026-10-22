@@ -3,6 +3,12 @@
 <p align="center">Omarchy shell plugin for SteelSeries Apex keyboards:
 per-key RGB, the 128×40 OLED, and the OLED scroll wheel.</p>
 
+<p align="center"><img src="docs/media/claude-page.png" alt="The OLED's Claude Code page in four states: Working, Needs you, Thinking and Idle" width="720"></p>
+
+<p align="center"><sub>The OLED's <a href="#claude-code-activity">Claude Code page</a>,
+rendered by the plugin's own OLED code at 4× scale (not a photo of the
+keyboard). Regenerate with <code>python3 scripts/claude_preview.py</code>.</sub></p>
+
 ## Supported keyboards
 
 | Keyboard | USB ID | OLED | RGB | Wheel |
@@ -96,12 +102,7 @@ apexctl wheel workspace
 ## Claude Code activity
 
 The **claude** OLED page shows what [Claude Code](https://claude.com/claude-code)
-is doing, with a small pixel mascot:
-
-![The Claude page in four states: Working, Needs you, Thinking and Idle](docs/media/claude-page.png)
-
-<sub>Frames rendered by the plugin's own OLED code at 4× scale, not a photo
-of the keyboard. Regenerate with `python3 scripts/claude_preview.py`.</sub>
+is doing, with a small pixel mascot (pictured at the top of this README):
 
 | State | Mascot | Text |
 |---|---|---|
