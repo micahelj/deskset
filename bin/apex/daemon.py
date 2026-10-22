@@ -321,7 +321,7 @@ class Daemon:
             self._cycle_rgb(1)
             self._push_rgb(force=True)
         elif mode == "workspace":
-            _run(["hyprctl", "dispatch", "togglespecialworkspace"])
+            hypr.toggle_special("scratchpad")  # same scratchpad as Super+S
         elif mode == "brightness":
             _run(["omarchy", "brightness", "display", "off"])
 
@@ -331,9 +331,9 @@ class Daemon:
             for _ in range(abs(steps)):
                 _run(["omarchy", "audio", "output", "volume", action])
         elif mode == "workspace":
-            dispatch = "workspace e+1" if steps > 0 else "workspace e-1"
+            relative = "e+1" if steps > 0 else "e-1"
             for _ in range(abs(steps)):
-                hypr.dispatch(dispatch)
+                hypr.focus_workspace(relative)
         elif mode == "brightness":
             delta = f"+{5 * abs(steps)}%" if steps > 0 else f"{5 * abs(steps)}%-"
             _run(["omarchy", "brightness", "display", delta])

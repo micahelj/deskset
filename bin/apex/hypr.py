@@ -30,5 +30,18 @@ def active():
     return {"workspace": name, "window": title, "class": klass}
 
 
-def dispatch(command):
-    _hypr("dispatch", *command.split())
+def dispatch(lua, legacy):
+    """Run a dispatcher. Hyprland 0.56+ (Lua config) evaluates `dispatch` as
+    hl.dispatch(<lua>); older releases take the classic "name args" form."""
+    out = _hypr("dispatch", lua).strip()
+    if out != "ok":
+        _hypr("dispatch", *legacy.split())
+
+
+def focus_workspace(relative):
+    """relative is e.g. "e+1": the next workspace that has windows."""
+    dispatch(f'hl.dsp.focus({{ workspace = "{relative}" }})', f"workspace {relative}")
+
+
+def toggle_special(name):
+    dispatch(f'hl.dsp.workspace.toggle_special("{name}")', f"togglespecialworkspace {name}")
