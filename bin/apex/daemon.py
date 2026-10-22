@@ -20,6 +20,7 @@ from . import mpris
 from . import oled
 from . import render
 from . import rgb as rgbmod
+from . import sysmon
 from . import wheel as wheelmod
 from . import workspaces
 from .layout import KEYCODE_TO_LED, OLED_PAGES, RGB_MODES, WHEEL_MODES
@@ -53,6 +54,8 @@ class Daemon:
         self.claude_cache = None
         self.workspaces = None
         self.cheat = cheatsheet.CheatSheet()
+        self.sysmon = sysmon.Monitor()
+        self.last_sample = 0.0
         self.oled_hash = None
         self.wheel_devs = []
         self.key_devs = []
@@ -143,6 +146,10 @@ class Daemon:
                 self.palette = rgbmod.load_palette()
                 self.last_palette = now
             self._decay_reactive(now)
+            # Always sample, so the system page has history the moment it is shown.
+            if now - self.last_sample >= 1.0:
+                self.sysmon.sample()
+                self.last_sample = now
             if self.cheat.expired(now):
                 self.cheat.close()
                 self._apply_wheel_grab()
@@ -482,6 +489,8 @@ class Daemon:
             state.update(mpris.now_playing())
         elif page == "workspace":
             state.update(hypr.active())
+        elif page == "system":
+            state["system"] = self.sysmon.snapshot()
         elif page == "claude":
             state["claude"] = summary or claude.summary()
             state["usage"] = claude.session_usage()

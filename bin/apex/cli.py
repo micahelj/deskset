@@ -143,6 +143,14 @@ def _local_oled(cfg, req):
         state.update(mpris.now_playing())
     elif page == "workspace":
         state.update(hypr.active())
+    elif page == "system":
+        import time as _time
+        from . import sysmon
+        mon = sysmon.Monitor()
+        mon.sample()
+        _time.sleep(0.5)  # CPU % needs two samples
+        mon.sample()
+        state["system"] = mon.snapshot()
     elif page == "claude":
         from . import claude
         state["claude"] = claude.summary()

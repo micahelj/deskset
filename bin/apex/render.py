@@ -184,6 +184,43 @@ def claude_page(summary, usage=None, t=0.0):
     return im
 
 
+TEMP_SCALE = (30.0, 100.0)  # °C mapped to an empty..full sparkline
+
+
+def _sparkline(draw, values, x0, y0, width, height, lo=0.0, hi=1.0):
+    """1-px bars, newest on the right, filled from the bottom; baseline always drawn."""
+    draw.line([x0, y0 + height - 1, x0 + width - 1, y0 + height - 1], fill=255)
+    recent = values[-width:]
+    start = x0 + width - len(recent)
+    for i, v in enumerate(recent):
+        frac = max(0.0, min(1.0, (v - lo) / (hi - lo)))
+        bar = int(round(frac * (height - 1)))
+        if bar:
+            draw.line([start + i, y0 + height - 1 - bar, start + i, y0 + height - 1], fill=255)
+
+
+def system_page(stats):
+    """Three rows: CPU %, memory %, CPU temperature, each with ~75 s of history."""
+    im = blank()
+    draw = ImageDraw.Draw(im)
+    cpu, mem, temp = stats.get("cpu") or [], stats.get("mem") or [], stats.get("temp") or []
+    rows = (
+        ("CPU", f"{cpu[-1] * 100:.0f}%" if cpu else "–", cpu, 0.0, 1.0),
+        ("MEM", f"{mem[-1] * 100:.0f}%" if mem else "–", mem, 0.0, 1.0),
+        ("TMP", f"{temp[-1]:.0f}°" if temp else "–", temp, *TEMP_SCALE),
+    )
+    # Widest label "MEM" is 24 px and widest value "100%" 25 px at FONT_SM:
+    # label at 1, value right-aligned to 53, sparkline from 56 (72 px wide).
+    spark_x = 56
+    for i, (label, value, series, lo, hi) in enumerate(rows):
+        y = i * 13
+        _blit_text(draw, (1, y), label, FONT_SM)
+        vw = _text_width(draw, value, FONT_SM)
+        _blit_text(draw, (spark_x - 3 - vw, y), value, FONT_SM)
+        _sparkline(draw, series, spark_x, y + 2, OLED_WIDTH - spark_x, 10, lo, hi)
+    return im
+
+
 def _fit(draw, text, font, room):
     if _text_width(draw, text, font) <= room:
         return text
@@ -236,6 +273,8 @@ def render(page, state):
         return workspace(state.get("workspace", ""), state.get("window", ""), t)
     if page == "logo":
         return image_page(state.get("image"))
+    if page == "system":
+        return system_page(state.get("system") or {})
     if page == "cheatsheet":
         return cheatsheet_page(state.get("cheatsheet") or {})
     if page == "claude":

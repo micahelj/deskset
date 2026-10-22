@@ -23,7 +23,7 @@ Panel {
 
   readonly property var rgbModes: ["theme", "solid", "gradient", "wave", "breathe", "rainbow", "reactive", "off"]
   readonly property var rgbProfiles: ["sunset", "ocean", "fire", "matrix", "cyberpunk", "aurora", "candy", "ice", "vaporwave", "gold"]
-  readonly property var oledPages: ["clock", "now-playing", "workspace", "logo", "text", "claude", "clear"]
+  readonly property var oledPages: ["clock", "now-playing", "workspace", "logo", "text", "claude", "system", "clear"]
   readonly property var wheelModes: ["volume", "workspace", "brightness", "oled", "rgb"]
 
   readonly property string pluginDir: Qt.resolvedUrl(".").toString().replace("file://", "").replace(/\/$/, "")
