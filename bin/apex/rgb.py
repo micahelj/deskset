@@ -133,6 +133,26 @@ def apply_claude_alert(colors, waiting, t, color=CLAUDE_ALERT):
     return out
 
 
+WORKSPACE_LEVELS = {"active": 100, "visible": 55, "occupied": 22}
+
+
+def apply_workspace_keys(colors, ws_levels, accent, brightness=100):
+    """Turn the number row into a workspace strip; other keys untouched.
+
+    ws_levels maps workspace id (1-10) to "active" | "visible" | "occupied";
+    keys for empty workspaces go dark so the lit ones stand out.
+    """
+    from .workspaces import KEY_FOR
+    index = {name: i for i, name in enumerate(LEDS)}
+    out = list(colors)
+    for wid, key in KEY_FOR.items():
+        if key not in index:
+            continue
+        level = WORKSPACE_LEVELS.get(ws_levels.get(wid), 0)
+        out[index[key]] = scale_color(accent, level * brightness // 100)
+    return out
+
+
 def apply_key_overrides(colors, overrides):
     if not overrides:
         return colors

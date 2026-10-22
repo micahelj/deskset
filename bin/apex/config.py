@@ -23,6 +23,8 @@ DEFAULT = {
         # Flash Escape orange while a Claude Code session needs you.
         "claude_esc": True,
         "claude_esc_color": "#FF3C00",
+        # Number row 1-0 shows Hyprland workspaces 1-10 in the theme accent.
+        "workspace_keys": True,
         "speed": 45,
         "keys": {},
     },

@@ -20,6 +20,7 @@ from . import oled
 from . import render
 from . import rgb as rgbmod
 from . import wheel as wheelmod
+from . import workspaces
 from .layout import KEYCODE_TO_LED, OLED_PAGES, RGB_MODES, WHEEL_MODES
 
 RGB_FPS = 24
@@ -49,6 +50,7 @@ class Daemon:
         self.claude_focused = False
         self.claude_focus_checked = 0.0
         self.claude_cache = None
+        self.workspaces = None
         self.oled_hash = None
         self.wheel_devs = []
         self.key_devs = []
@@ -59,6 +61,7 @@ class Daemon:
     def start(self):
         self._connect_rgb()
         self._open_inputs()
+        self.workspaces = workspaces.Tracker()
         self._listen()
         signal.signal(signal.SIGTERM, self._stop)
         signal.signal(signal.SIGINT, self._stop)
@@ -113,6 +116,8 @@ class Daemon:
         out = [self.server] + self.clients
         out.extend(self.wheel_devs)
         out.extend(self.key_devs)
+        if self.workspaces and self.workspaces.sock is not None:
+            out.append(self.workspaces)
         return out
 
     def loop(self):
@@ -129,6 +134,8 @@ class Daemon:
                     self._on_wheel(fd)
                 elif fd in self.key_devs:
                     self._on_keys(fd)
+                elif fd is self.workspaces:
+                    self.workspaces.on_readable()
             if now - self.last_palette > 2.0:
                 self.palette = rgbmod.load_palette()
                 self.last_palette = now
@@ -389,6 +396,10 @@ class Daemon:
                 reactive_keys=ages if mode == "reactive" else (ages if ages and mode == "theme" else {}),
                 profile=self.cfg["rgb"].get("profile"),
             )
+            if self.cfg["rgb"].get("workspace_keys", True) and self.workspaces:
+                colors = rgbmod.apply_workspace_keys(
+                    colors, self.workspaces.poll(), self.palette["accent"], self.cfg["rgb"]["brightness"]
+                )
             colors = rgbmod.apply_key_overrides(colors, self.cfg["rgb"].get("keys"))
             if self.cfg["rgb"].get("claude_esc", True):
                 waiting = self._claude_summary()["state"] == "waiting"
@@ -458,6 +469,8 @@ class Daemon:
     def shutdown(self):
         for dev in self.wheel_devs + self.key_devs:
             dev.close()
+        if self.workspaces:
+            self.workspaces.close()
         for conn in list(self.clients):
             self._drop(conn)
         if self.server:
