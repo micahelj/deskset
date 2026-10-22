@@ -122,6 +122,12 @@ def classify(window_class, pid, streams, runs_claude=None):
     return "volume", "Volume"
 
 
+def show_osd(name, level, muted):
+    """Omarchy's on-screen volume pop-up, labelled with the app's name."""
+    icon = "volume-muted" if muted or level == 0 else "volume-high"
+    _run(["omarchy-osd", "-i", icon, "-m", name, "-p", str(level)])
+
+
 def system_volume():
     out = _run(["wpctl", "get-volume", "@DEFAULT_AUDIO_SINK@"])  # "Volume: 0.85 [MUTED]"
     try:
@@ -199,10 +205,12 @@ class AppWheel:
             if click:
                 _run(["pactl", "set-sink-input-mute", str(stream["index"]), "toggle"])
                 self.toast(name, "Unmuted" if stream["mute"] else "Muted")
+                show_osd(name, stream["volume"], muted=not stream["mute"])
             else:
                 level = max(0, min(100, stream["volume"] + steps * VOLUME_STEP))
                 _run(["pactl", "set-sink-input-volume", str(stream["index"]), f"{level}%"])
                 self.toast(name, f"{level}%")
+                show_osd(name, level, muted=stream["mute"])
         else:
             if click:
                 _run(["omarchy", "audio", "output", "volume", "mute-toggle"])

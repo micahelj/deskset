@@ -105,11 +105,13 @@ class Actions(unittest.TestCase):
         self.wheel._act(steps=30)  # 30% + 150% clamps to 100%
         self.assertIn(["pactl", "set-sink-input-volume", "42", "100%"], self.run_calls)
         self.assertEqual(self.toasts[-1], ("Spotify", "100%"))
+        self.assertIn(["omarchy-osd", "-i", "volume-high", "-m", "Spotify", "-p", "100"], self.run_calls)
 
     def test_app_click_mutes_only_that_app(self):
         self.focused = ("spotify", 0)
         self.wheel._act(click=True)
         self.assertIn(["pactl", "set-sink-input-mute", "42", "toggle"], self.run_calls)
+        self.assertIn(["omarchy-osd", "-i", "volume-muted", "-m", "Spotify", "-p", "30"], self.run_calls)
 
     def test_claude_window_never_sends_shortcuts(self):
         self.focused = ("org.omarchy.agent", 4242)
