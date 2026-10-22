@@ -123,9 +123,22 @@ def classify(window_class, pid, streams, runs_claude=None):
 
 
 def show_osd(name, level, muted):
-    """Omarchy's on-screen volume pop-up, labelled with the app's name."""
+    """Omarchy's on-screen volume bar, with the app's name in the readout.
+
+    `omarchy-osd -m` drops the bar (the OSD only draws one without a message),
+    so send the shell the same payload omarchy-osd builds, with the app name in
+    progressText. Falls back to the plain bar if that call fails.
+    """
     icon = "volume-muted" if muted or level == 0 else "volume-high"
-    _run(["omarchy-osd", "-i", icon, "-m", name, "-p", str(level)])
+    payload = json.dumps({"icon": icon, "message": "", "value": str(level),
+                          "progressText": f"{name} {level}%", "max": "100", "duration": ""})
+    try:
+        ok = subprocess.run(["omarchy-shell", "-q", "osd", "show", payload],
+                            capture_output=True, timeout=2).returncode == 0
+    except (OSError, subprocess.SubprocessError):
+        ok = False
+    if not ok:
+        _run(["omarchy-osd", "-i", icon, "-p", str(level)])
 
 
 def system_volume():

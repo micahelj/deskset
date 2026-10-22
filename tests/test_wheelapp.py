@@ -15,6 +15,19 @@ STREAMS = [
 ]
 
 
+class Osd(unittest.TestCase):
+    def test_falls_back_to_plain_bar(self):
+        calls = []
+        orig_run, orig_sub = wheelapp._run, wheelapp.subprocess.run
+        wheelapp._run = lambda argv, timeout=2: calls.append(argv) or ""
+        wheelapp.subprocess.run = lambda *a, **k: type("R", (), {"returncode": 1})()
+        try:
+            wheelapp.show_osd("Chromium", 40, muted=False)
+        finally:
+            wheelapp._run, wheelapp.subprocess.run = orig_run, orig_sub
+        self.assertEqual(calls, [["omarchy-osd", "-i", "volume-high", "-p", "40"]])
+
+
 class Rules(unittest.TestCase):
     def setUp(self):
         self._desc = wheelapp.descendants
@@ -69,6 +82,16 @@ class Actions(unittest.TestCase):
         wheelapp.hypr._hypr = fake_hypr
         wheelapp._run = lambda argv, timeout=2: self.run_calls.append(argv) or ""
         wheelapp.playback_streams = lambda: [dict(s) for s in STREAMS]
+        self.osd = []
+        self._subrun = wheelapp.subprocess.run
+
+        def fake_subrun(argv, **kw):
+            import json as _json
+            p = _json.loads(argv[-1])
+            self.osd.append((p["icon"], p["value"], p["progressText"]))
+            assert p["message"] == "", "a message would hide the bar"
+            return type("R", (), {"returncode": 0})()
+        wheelapp.subprocess.run = fake_subrun
         self.wheel = wheelapp.AppWheel.__new__(wheelapp.AppWheel)
         self.wheel.toast = lambda t, s="": self.toasts.append((t, s))
         self.wheel.last_kind = None
@@ -76,6 +99,7 @@ class Actions(unittest.TestCase):
     def tearDown(self):
         wheelapp.hypr._hypr, wheelapp._run = self._hypr, self._run_fn
         wheelapp.playback_streams, wheelapp.time.sleep = self._streams, self._sleep
+        wheelapp.subprocess.run = self._subrun
 
     def dispatches(self):
         return [c[1] for c in self.hypr_calls if c[0] == "dispatch"]
@@ -105,13 +129,13 @@ class Actions(unittest.TestCase):
         self.wheel._act(steps=30)  # 30% + 150% clamps to 100%
         self.assertIn(["pactl", "set-sink-input-volume", "42", "100%"], self.run_calls)
         self.assertEqual(self.toasts[-1], ("Spotify", "100%"))
-        self.assertIn(["omarchy-osd", "-i", "volume-high", "-m", "Spotify", "-p", "100"], self.run_calls)
+        self.assertEqual(self.osd[-1], ("volume-high", "100", "Spotify 100%"))
 
     def test_app_click_mutes_only_that_app(self):
         self.focused = ("spotify", 0)
         self.wheel._act(click=True)
         self.assertIn(["pactl", "set-sink-input-mute", "42", "toggle"], self.run_calls)
-        self.assertIn(["omarchy-osd", "-i", "volume-muted", "-m", "Spotify", "-p", "30"], self.run_calls)
+        self.assertEqual(self.osd[-1], ("volume-muted", "30", "Spotify 30%"))
 
     def test_claude_window_never_sends_shortcuts(self):
         self.focused = ("org.omarchy.agent", 4242)
