@@ -140,6 +140,26 @@ polled it cannot runtime-suspend, so on a laptop running on battery choose
 another page when you do not need it. Other GPU vendors are not supported
 yet; the system page then shows only the CPU view.
 
+## App-aware wheel
+
+Set the wheel to **app** (`apexctl wheel app`, or in the panel) and what it
+does follows the focused window:
+
+| Focused window | Scroll | Click |
+|---|---|---|
+| Claude Code | system volume (never answers a prompt) | mute |
+| Browser playing audio or video | the browser's own volume | mute the browser |
+| Browser, nothing playing | previous / next tab | reopen the last closed tab |
+| Terminal (Ghostty, Alacritty, foot, kitty) | font size | reset font size |
+| Any other app playing sound | that app's own volume | mute just that app |
+| Anything else | system volume | mute |
+
+The OLED briefly shows what the wheel does when focus changes it
+(`Wheel · Tabs`) and the result of each turn (`Next tab →`,
+`Chromium 70%`). Per-app volume also shows Omarchy's on-screen volume bar,
+labelled with the app's name. A paused player stops counting as playing,
+so a browser goes back to tab switching as soon as the video is paused.
+
 ## Keybinding cheat sheet
 
 `apexctl cheatsheet` lights every key bound under one modifier set, so you

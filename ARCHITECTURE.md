@@ -14,7 +14,8 @@ Ownership map:
   `oled.py` (USB HID interface 1), `cheatsheet.py` (keybinding cheat sheet
   from `omarchy menu keybindings --print`), `sysmon.py` and `gpu.py` (CPU,
   memory, temperature and NVIDIA stats for the system / gpu pages),
-  `workspaces.py` (Hyprland socket2
+  `wheelapp.py` (the app-aware wheel: per-window
+  actions, per-app volume, OSD), `workspaces.py` (Hyprland socket2
   workspace state), `claude.py` (Claude Code hook state
   and session summary for the `claude` OLED page), `wheel.py`, `hypr.py`
   (Hyprland integration), `mpris.py` (media titles for the OLED),
