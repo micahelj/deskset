@@ -62,7 +62,12 @@ def load_palette(path=THEME_COLORS):
             return parse_hex(value, parse_hex(fallback))
         return parse_hex(fallback)
 
+    # Every hex colour the theme defines (magenta, blue, yellow, ...) by name,
+    # so settings can refer to them; the curated keys below take precedence.
+    named = {k: parse_hex(v) for k, v in palette.items()
+             if isinstance(v, str) and len(v.strip().lstrip("#")) == 6}
     return {
+        **named,
         "accent": get("accent", "#89b4fa"),
         "foreground": get("foreground", "#cdd6f4"),
         "muted": get("muted", "#45475a"),
@@ -71,8 +76,18 @@ def load_palette(path=THEME_COLORS):
         "highlight": get("orange", get("red", "#f38ba8")),
         "cyan": get("cyan", "#94e2d5"),
         "green": get("green", "#a6e3a1"),
+        "magenta": get("magenta", "#cba6f7"),
         "theme": os.path.basename(os.path.dirname(path)) or "current",
     }
+
+
+def resolve_color(value, palette, fallback):
+    """A "#RRGGBB" hex, or the name of a theme colour such as "accent" or "green"."""
+    text = str(value or "").strip()
+    if text.startswith("#"):
+        return parse_hex(text, fallback)
+    color = palette.get(text)
+    return color if isinstance(color, tuple) else fallback
 
 
 # Named multi-color profiles for the `gradient` mode. Each list is sampled
@@ -133,23 +148,27 @@ def apply_claude_alert(colors, waiting, t, color=CLAUDE_ALERT):
     return out
 
 
-WORKSPACE_LEVELS = {"active": 100, "visible": 55, "occupied": 22}
+# Theme colour names (or "#RRGGBB") per workspace state. Every key stays lit at
+# the same brightness; only the hue changes. Orange/yellow are avoided because
+# Escape, beside the 1 key, flashes orange for Claude.
+WORKSPACE_COLORS = {"active": "accent", "visible": "magenta", "occupied": "green", "empty": "foreground"}
 
 
-def apply_workspace_keys(colors, ws_levels, accent, brightness=100):
+def apply_workspace_keys(colors, ws_levels, palette, brightness=100, scheme=None):
     """Turn the number row into a workspace strip; other keys untouched.
 
     ws_levels maps workspace id (1-10) to "active" | "visible" | "occupied";
-    keys for empty workspaces go dark so the lit ones stand out.
+    any other workspace uses the "empty" colour.
     """
     from .workspaces import KEY_FOR
+    scheme = {**WORKSPACE_COLORS, **(scheme or {})}
+    fallback = palette.get("foreground", (200, 200, 200))
+    hues = {state: resolve_color(value, palette, fallback) for state, value in scheme.items()}
     index = {name: i for i, name in enumerate(LEDS)}
     out = list(colors)
     for wid, key in KEY_FOR.items():
-        if key not in index:
-            continue
-        level = WORKSPACE_LEVELS.get(ws_levels.get(wid), 0)
-        out[index[key]] = scale_color(accent, level * brightness // 100)
+        if key in index:
+            out[index[key]] = scale_color(hues[ws_levels.get(wid, "empty")], brightness)
     return out
 
 

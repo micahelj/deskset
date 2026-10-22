@@ -398,7 +398,8 @@ class Daemon:
             )
             if self.cfg["rgb"].get("workspace_keys", True) and self.workspaces:
                 colors = rgbmod.apply_workspace_keys(
-                    colors, self.workspaces.poll(), self.palette["accent"], self.cfg["rgb"]["brightness"]
+                    colors, self.workspaces.poll(), self.palette, self.cfg["rgb"]["brightness"],
+                    self.cfg["rgb"].get("workspace_colors"),
                 )
             colors = rgbmod.apply_key_overrides(colors, self.cfg["rgb"].get("keys"))
             if self.cfg["rgb"].get("claude_esc", True):
