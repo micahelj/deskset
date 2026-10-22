@@ -199,19 +199,14 @@ def _sparkline(draw, values, x0, y0, width, height, lo=0.0, hi=1.0):
             draw.line([start + i, y0 + height - 1 - bar, start + i, y0 + height - 1], fill=255)
 
 
-def system_page(stats):
-    """Three rows: CPU %, memory %, CPU temperature, each with ~75 s of history."""
+def _stat_rows(rows):
+    """Three label | value | sparkline rows. Columns fit the widest label and a
+    "100%" value, so values never touch labels (CPU page: sparkline from x=56)."""
     im = blank()
     draw = ImageDraw.Draw(im)
-    cpu, mem, temp = stats.get("cpu") or [], stats.get("mem") or [], stats.get("temp") or []
-    rows = (
-        ("CPU", f"{cpu[-1] * 100:.0f}%" if cpu else "–", cpu, 0.0, 1.0),
-        ("MEM", f"{mem[-1] * 100:.0f}%" if mem else "–", mem, 0.0, 1.0),
-        ("TMP", f"{temp[-1]:.0f}°" if temp else "–", temp, *TEMP_SCALE),
-    )
-    # Widest label "MEM" is 24 px and widest value "100%" 25 px at FONT_SM:
-    # label at 1, value right-aligned to 53, sparkline from 56 (72 px wide).
-    spark_x = 56
+    label_w = max(_text_width(draw, r[0], FONT_SM) for r in rows)
+    value_w = _text_width(draw, "100%", FONT_SM)
+    spark_x = 1 + label_w + 3 + value_w + 3
     for i, (label, value, series, lo, hi) in enumerate(rows):
         y = i * 13
         _blit_text(draw, (1, y), label, FONT_SM)
@@ -219,6 +214,38 @@ def system_page(stats):
         _blit_text(draw, (spark_x - 3 - vw, y), value, FONT_SM)
         _sparkline(draw, series, spark_x, y + 2, OLED_WIDTH - spark_x, 10, lo, hi)
     return im
+
+
+def _pct(series):
+    return f"{series[-1] * 100:.0f}%" if series else "–"
+
+
+def _deg(series):
+    return f"{series[-1]:.0f}°" if series else "–"
+
+
+def system_page(stats):
+    """CPU %, memory %, CPU temperature, each with ~72 s of history."""
+    cpu, mem, temp = stats.get("cpu") or [], stats.get("mem") or [], stats.get("temp") or []
+    return _stat_rows((
+        ("CPU", _pct(cpu), cpu, 0.0, 1.0),
+        ("MEM", _pct(mem), mem, 0.0, 1.0),
+        ("TMP", _deg(temp), temp, *TEMP_SCALE),
+    ))
+
+
+def gpu_page(stats):
+    """GPU load, video memory and GPU temperature; a note when there is none or it sleeps."""
+    if not stats.get("present"):
+        return text_page("No NVIDIA GPU")
+    if stats.get("asleep"):
+        return text_page("GPU asleep", subtitle=stats.get("name") or "not polled, saves power")
+    util, vram, temp = stats.get("util") or [], stats.get("vram") or [], stats.get("temp") or []
+    return _stat_rows((
+        ("GPU", _pct(util), util, 0.0, 1.0),
+        ("VRAM", _pct(vram), vram, 0.0, 1.0),
+        ("TMP", _deg(temp), temp, *TEMP_SCALE),
+    ))
 
 
 def _fit(draw, text, font, room):
@@ -273,6 +300,8 @@ def render(page, state):
         return workspace(state.get("workspace", ""), state.get("window", ""), t)
     if page == "logo":
         return image_page(state.get("image"))
+    if page == "gpu":
+        return gpu_page(state.get("gpu") or {})
     if page == "system":
         return system_page(state.get("system") or {})
     if page == "cheatsheet":

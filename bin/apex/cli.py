@@ -143,6 +143,12 @@ def _local_oled(cfg, req):
         state.update(mpris.now_playing())
     elif page == "workspace":
         state.update(hypr.active())
+    elif page == "gpu":
+        from . import gpu
+        mon = gpu.GpuMonitor()
+        if mon.present:
+            mon.poll()
+        state["gpu"] = mon.snapshot()
     elif page == "system":
         import time as _time
         from . import sysmon

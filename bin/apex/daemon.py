@@ -15,6 +15,7 @@ from . import cheatsheet
 from . import claude
 from . import config as cfgmod
 from . import devices
+from . import gpu as gpumod
 from . import hypr
 from . import mpris
 from . import oled
@@ -26,6 +27,7 @@ from . import workspaces
 from .layout import KEYCODE_TO_LED, OLED_PAGES, RGB_MODES, WHEEL_MODES
 
 RGB_FPS = 24
+SYSTEM_CYCLE = 6.0  # seconds per CPU / GPU half of the system page
 OLED_MIN_DT = 0.12
 
 
@@ -55,6 +57,7 @@ class Daemon:
         self.workspaces = None
         self.cheat = cheatsheet.CheatSheet()
         self.sysmon = sysmon.Monitor()
+        self.gpu = gpumod.GpuMonitor()
         self.last_sample = 0.0
         self.oled_hash = None
         self.wheel_devs = []
@@ -490,7 +493,18 @@ class Daemon:
         elif page == "workspace":
             state.update(hypr.active())
         elif page == "system":
-            state["system"] = self.sysmon.snapshot()
+            # Alternate CPU and GPU every SYSTEM_CYCLE seconds; skip a sleeping GPU.
+            # Asking for GPU data keeps a laptop GPU awake while this page is shown.
+            self.gpu.want()
+            gpu = self.gpu.snapshot()
+            if gpu["present"] and not gpu["asleep"] and int(state["t"] / SYSTEM_CYCLE) % 2:
+                page = "gpu"
+                state["gpu"] = gpu
+            else:
+                state["system"] = self.sysmon.snapshot()
+        elif page == "gpu":
+            self.gpu.want()
+            state["gpu"] = self.gpu.snapshot()
         elif page == "claude":
             state["claude"] = summary or claude.summary()
             state["usage"] = claude.session_usage()
