@@ -184,6 +184,31 @@ def claude_page(summary, usage=None, t=0.0):
     return im
 
 
+def _fit(draw, text, font, room):
+    if _text_width(draw, text, font) <= room:
+        return text
+    while text and _text_width(draw, text + "…", font) > room:
+        text = text[:-1]
+    return text + "…"
+
+
+def cheatsheet_page(state):
+    """Keybinding cheat sheet: modifier set, then the selected key and action."""
+    im = blank()
+    draw = ImageDraw.Draw(im)
+    position = state.get("position", "")
+    pw = _text_width(draw, position, FONT_SM)
+    _blit_text(draw, (OLED_WIDTH - pw - 1, 3), position, FONT_SM)
+    _blit_text(draw, (1, 1), _fit(draw, state.get("label", ""), FONT_MD, OLED_WIDTH - pw - 6), FONT_MD)
+    if state.get("key"):
+        _blit_text(draw, (1, 15), _fit(draw, state["key"], FONT_SM, OLED_WIDTH - 2), FONT_SM)
+        _blit_text(draw, (1, 27), _fit(draw, state.get("description", ""), FONT_SM, OLED_WIDTH - 2), FONT_SM)
+    else:
+        _blit_text(draw, (1, 15), f"{state.get('count', 0)} keys · scroll", FONT_SM)
+        _blit_text(draw, (1, 27), "click: next set", FONT_SM)
+    return im
+
+
 def image_page(path):
     path = os.path.expanduser(path or LOGO_FALLBACK)
     if not os.path.isfile(path):
@@ -211,6 +236,8 @@ def render(page, state):
         return workspace(state.get("workspace", ""), state.get("window", ""), t)
     if page == "logo":
         return image_page(state.get("image"))
+    if page == "cheatsheet":
+        return cheatsheet_page(state.get("cheatsheet") or {})
     if page == "claude":
         return claude_page(state.get("claude") or {}, state.get("usage"), t)
     if page == "text":

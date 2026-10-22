@@ -247,6 +247,17 @@ def cmd_daemon(_args):
     run()
 
 
+def cmd_cheatsheet(args):
+    data = _talk({"cmd": "cheatsheet", "action": args.action})
+    if data is None:
+        print("apexctl: the daemon is not running (start it from the panel's Set up button)", file=sys.stderr)
+        sys.exit(1)
+    if data.get("cheatsheet"):
+        print(f"cheat sheet open: {data.get('label')} ({data.get('count')} keys)")
+    else:
+        print("cheat sheet closed")
+
+
 def cmd_claude_hook(_args):
     # Claude Code hook entry point: event JSON on stdin, never fails or prints.
     from . import claude
@@ -296,6 +307,9 @@ def build_parser():
 
     da = sub.add_parser("daemon", help="run the RGB / OLED / wheel daemon")
     da.set_defaults(func=cmd_daemon)
+    cs = sub.add_parser("cheatsheet", help="light the keys bound under each modifier set")
+    cs.add_argument("action", nargs="?", default="toggle", choices=("toggle", "open", "close"))
+    cs.set_defaults(func=cmd_cheatsheet)
     ch = sub.add_parser("claude-hook", help="record Claude Code activity (run by a Claude Code hook)")
     ch.set_defaults(func=cmd_claude_hook)
     return p

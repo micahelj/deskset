@@ -11,6 +11,7 @@ import subprocess
 import sys
 import time
 
+from . import cheatsheet
 from . import claude
 from . import config as cfgmod
 from . import devices
@@ -51,6 +52,7 @@ class Daemon:
         self.claude_focus_checked = 0.0
         self.claude_cache = None
         self.workspaces = None
+        self.cheat = cheatsheet.CheatSheet()
         self.oled_hash = None
         self.wheel_devs = []
         self.key_devs = []
@@ -108,7 +110,8 @@ class Daemon:
         os.chmod(sock_path, 0o600)
 
     def _apply_wheel_grab(self):
-        grab = self.cfg["wheel"]["mode"] != "volume"
+        # The cheat sheet borrows the wheel to browse bindings.
+        grab = self.cfg["wheel"]["mode"] != "volume" or self.cheat.active
         for dev in self.wheel_devs:
             dev.set_grab(grab)
 
@@ -140,6 +143,10 @@ class Daemon:
                 self.palette = rgbmod.load_palette()
                 self.last_palette = now
             self._decay_reactive(now)
+            if self.cheat.expired(now):
+                self.cheat.close()
+                self._apply_wheel_grab()
+                self._push_oled(force=True)
             if now - self.last_rgb >= 1.0 / RGB_FPS:
                 self._push_rgb()
                 self.last_rgb = now
@@ -234,6 +241,17 @@ class Daemon:
             self._push_oled(force=True)
             self._push_rgb(force=True)
             return self.status()
+        if cmd == "cheatsheet":
+            action = req.get("action", "toggle")
+            if action == "open" or (action == "toggle" and not self.cheat.active):
+                opened = self.cheat.open()
+            else:
+                self.cheat.close()
+                opened = False
+            self._apply_wheel_grab()
+            self._push_oled(force=True)
+            self._push_rgb(force=True)
+            return {"ok": True, "cheatsheet": opened, **(self.cheat.oled_state() if opened else {})}
         if cmd == "stop":
             self.running = False
             return {"ok": True}
@@ -308,6 +326,15 @@ class Daemon:
         rel_steps, key_steps, clicked = wheelmod.decode_wheel(
             events, invert=self.cfg["wheel"]["invert"]
         )
+        if self.cheat.active:
+            steps = rel_steps or key_steps
+            if clicked:
+                self.cheat.next_set()
+            if steps:
+                self.cheat.step(steps)
+            if clicked or steps:
+                self._push_oled(force=True)
+            return
         mode = self.cfg["wheel"]["mode"]
         # Volume mode does not grab the device, so KEY_VOLUME*/MUTE already
         # reach Hyprland. Only map leftover REL events so the roller still
@@ -387,21 +414,25 @@ class Daemon:
         mode = self.cfg["rgb"]["mode"]
         ages = {k: time.monotonic() - ts for k, ts in self.reactive.items()}
         try:
-            colors = rgbmod.effect_colors(
-                mode,
-                self._rgb_time(),
-                self.palette,
-                self.cfg["rgb"]["solid"],
-                self.cfg["rgb"]["brightness"],
-                reactive_keys=ages if mode == "reactive" else (ages if ages and mode == "theme" else {}),
-                profile=self.cfg["rgb"].get("profile"),
-            )
-            if self.cfg["rgb"].get("workspace_keys", True) and self.workspaces:
-                colors = rgbmod.apply_workspace_keys(
-                    colors, self.workspaces.poll(), self.palette, self.cfg["rgb"]["brightness"],
-                    self.cfg["rgb"].get("workspace_colors"),
+            if self.cheat.active:
+                # The cheat sheet owns the whole board while it is open.
+                colors = self.cheat.colors(time.monotonic() - self.t0, self.cfg["rgb"]["brightness"])
+            else:
+                colors = rgbmod.effect_colors(
+                    mode,
+                    self._rgb_time(),
+                    self.palette,
+                    self.cfg["rgb"]["solid"],
+                    self.cfg["rgb"]["brightness"],
+                    reactive_keys=ages if mode == "reactive" else (ages if ages and mode == "theme" else {}),
+                    profile=self.cfg["rgb"].get("profile"),
                 )
-            colors = rgbmod.apply_key_overrides(colors, self.cfg["rgb"].get("keys"))
+                if self.cfg["rgb"].get("workspace_keys", True) and self.workspaces:
+                    colors = rgbmod.apply_workspace_keys(
+                        colors, self.workspaces.poll(), self.palette, self.cfg["rgb"]["brightness"],
+                        self.cfg["rgb"].get("workspace_colors"),
+                    )
+                colors = rgbmod.apply_key_overrides(colors, self.cfg["rgb"].get("keys"))
             if self.cfg["rgb"].get("claude_esc", True):
                 waiting = self._claude_summary()["state"] == "waiting"
                 alert = rgbmod.parse_hex(self.cfg["rgb"].get("claude_esc_color"), rgbmod.CLAUDE_ALERT)
@@ -439,6 +470,8 @@ class Daemon:
         return page, None
 
     def _oled_state(self):
+        if self.cheat.active:
+            return "cheatsheet", {"cheatsheet": self.cheat.oled_state(), "t": time.monotonic() - self.t0}
         page, summary = self._effective_page()
         state = {
             "t": time.monotonic() - self.t0,
