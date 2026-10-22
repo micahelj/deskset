@@ -300,6 +300,8 @@ def render(page, state):
         return workspace(state.get("workspace", ""), state.get("window", ""), t)
     if page == "logo":
         return image_page(state.get("image"))
+    if page == "toast":
+        return text_page(state.get("title", ""), 0, subtitle=state.get("subtitle", ""))
     if page == "gpu":
         return gpu_page(state.get("gpu") or {})
     if page == "system":

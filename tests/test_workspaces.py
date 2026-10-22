@@ -88,7 +88,21 @@ class Events(unittest.TestCase):
         t.sock.setblocking(False)
         t.buf, t.dirty, t.state = b"", False, {}
         t.last_refresh = t.last_connect = 0.0
+        t.active_address, t.focus_changed = None, False
         return t, peer
+
+    def test_focus_change_by_address_not_title(self):
+        t, peer = self.tracker()
+        peer.sendall(b"activewindowv2>>55b6\nwindowtitlev2>>55b6,spinner 1\nactivewindowv2>>55b6\n")
+        t.on_readable()
+        self.assertTrue(t.focus_changed)
+        t.focus_changed = False
+        peer.sendall(b"windowtitlev2>>55b6,spinner 2\nactivewindowv2>>55b6\n")  # same window
+        t.on_readable()
+        self.assertFalse(t.focus_changed)
+        peer.sendall(b"activewindowv2>>9a10\n")  # a different window
+        t.on_readable()
+        self.assertTrue(t.focus_changed)
 
     def test_title_spam_is_ignored(self):
         t, peer = self.tracker()

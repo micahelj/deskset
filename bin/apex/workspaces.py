@@ -72,6 +72,8 @@ class Tracker:
         self.last_refresh = 0.0
         self.last_connect = 0.0
         self.state = {}
+        self.active_address = None
+        self.focus_changed = False
         self.connect()
 
     def connect(self):
@@ -104,8 +106,13 @@ class Tracker:
         self.buf += chunk
         *lines, self.buf = self.buf.split(b"\n")
         for line in lines:
-            if line.split(b">>", 1)[0].decode(errors="replace") in RELEVANT:
+            event, _, data = line.decode(errors="replace").partition(">>")
+            if event in RELEVANT:
                 self.dirty = True
+            elif event == "activewindowv2" and data != self.active_address:
+                # By address: title changes (a busy terminal) repeat the same window.
+                self.active_address = data
+                self.focus_changed = True
 
     def poll(self, now=None):
         """Reconnect if needed and refresh the state when an event asked for it."""

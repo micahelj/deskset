@@ -22,11 +22,13 @@ from . import oled
 from . import render
 from . import rgb as rgbmod
 from . import sysmon
+from . import wheelapp
 from . import wheel as wheelmod
 from . import workspaces
 from .layout import KEYCODE_TO_LED, OLED_PAGES, RGB_MODES, WHEEL_MODES
 
 RGB_FPS = 24
+TOAST_SECONDS = 1.5  # OLED feedback for the app wheel
 SYSTEM_CYCLE = 6.0  # seconds per CPU / GPU half of the system page
 OLED_MIN_DT = 0.12
 
@@ -59,6 +61,8 @@ class Daemon:
         self.sysmon = sysmon.Monitor()
         self.gpu = gpumod.GpuMonitor()
         self.last_sample = 0.0
+        self.toast_state = None  # (until, title, subtitle)
+        self.appwheel = wheelapp.AppWheel(self._toast)
         self.oled_hash = None
         self.wheel_devs = []
         self.key_devs = []
@@ -149,6 +153,10 @@ class Daemon:
                 self.palette = rgbmod.load_palette()
                 self.last_palette = now
             self._decay_reactive(now)
+            if self.workspaces and self.workspaces.focus_changed:
+                self.workspaces.focus_changed = False
+                if self.cfg["wheel"]["mode"] == "app":
+                    self.appwheel.focus_changed()
             # Always sample, so the system page has history the moment it is shown.
             if now - self.last_sample >= 1.0:
                 self.sysmon.sample()
@@ -346,6 +354,13 @@ class Daemon:
                 self._push_oled(force=True)
             return
         mode = self.cfg["wheel"]["mode"]
+        if mode == "app":
+            steps = rel_steps or key_steps
+            if clicked:
+                self.appwheel.click()
+            if steps:
+                self.appwheel.turn(steps)
+            return
         # Volume mode does not grab the device, so KEY_VOLUME*/MUTE already
         # reach Hyprland. Only map leftover REL events so the roller still
         # works if the firmware does not emit media keys.
@@ -479,9 +494,16 @@ class Daemon:
             return "claude", summary
         return page, None
 
+    def _toast(self, title, subtitle=""):
+        # Called from the wheel worker thread; a tuple swap is atomic.
+        self.toast_state = (time.monotonic() + TOAST_SECONDS, title, subtitle)
+
     def _oled_state(self):
         if self.cheat.active:
             return "cheatsheet", {"cheatsheet": self.cheat.oled_state(), "t": time.monotonic() - self.t0}
+        toast = self.toast_state
+        if toast and time.monotonic() < toast[0]:
+            return "toast", {"title": toast[1], "subtitle": toast[2]}
         page, summary = self._effective_page()
         state = {
             "t": time.monotonic() - self.t0,

@@ -102,4 +102,4 @@ KEYCODE_TO_LED = {
 
 RGB_MODES = ("theme", "solid", "gradient", "wave", "breathe", "rainbow", "reactive", "off")
 OLED_PAGES = ("clock", "now-playing", "workspace", "logo", "text", "claude", "system", "gpu", "clear")
-WHEEL_MODES = ("volume", "workspace", "brightness", "oled", "rgb")
+WHEEL_MODES = ("volume", "app", "workspace", "brightness", "oled", "rgb")
