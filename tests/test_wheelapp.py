@@ -28,6 +28,16 @@ class Rules(unittest.TestCase):
         kind, _ = wheelapp.classify("chromium", 123, STREAMS, runs_claude=lambda pid: True)
         self.assertEqual(kind, "volume")
 
+    def test_browser_playing_media_gets_its_own_volume(self):
+        streams = [{"index": 7, "pid": 51, "volume": 80, "mute": False, "corked": False,
+                    "name": "Chromium", "binary": "chromium"}]
+        self.assertEqual(wheelapp.classify("chromium", 50, streams, NO_CLAUDE), ("app-volume", "Chromium volume"))
+
+    def test_paused_browser_media_goes_back_to_tabs(self):
+        streams = [{"index": 7, "pid": 51, "volume": 80, "mute": False, "corked": True,
+                    "name": "Chromium", "binary": "chromium"}]
+        self.assertEqual(wheelapp.classify("chromium", 50, streams, NO_CLAUDE), ("tabs", "Tabs"))
+
     def test_browser_and_terminal(self):
         self.assertEqual(wheelapp.classify("chromium", 5, [], NO_CLAUDE), ("tabs", "Tabs"))
         self.assertEqual(wheelapp.classify("com.mitchellh.ghostty", 5, [], NO_CLAUDE), ("zoom", "Font size"))

@@ -3,7 +3,9 @@
 Rules, first match wins:
   1. A window running Claude Code -> system volume (scrolling must never
      answer a prompt).
-  2. A browser -> previous / next tab; click reopens the last closed tab.
+  2. A browser playing audio or video -> the browser's own volume; click
+     mutes it. A quiet browser -> previous / next tab; click reopens the
+     last closed tab.
   3. A terminal -> font size; click resets it.
   4. Any other app that is playing sound -> that app's own volume; click
      mutes just that app.
@@ -85,6 +87,7 @@ def playback_streams():
             pid = 0
         out.append({
             "index": s.get("index"), "pid": pid, "volume": vol, "mute": bool(s.get("mute")),
+            "corked": bool(s.get("corked")),  # paused players keep a corked stream
             "name": props.get("application.name", ""), "binary": props.get("application.process.binary", ""),
         })
     return out
@@ -97,7 +100,8 @@ def streams_for(window_class, pid, streams):
     if not mine and window_class:
         key = window_class.lower().rsplit(".", 1)[-1]
         mine = [s for s in streams if key and (key in s["name"].lower() or key in s["binary"].lower())]
-    return mine
+    # Prefer streams that are actually playing.
+    return sorted(mine, key=lambda s: s.get("corked", False))
 
 
 def classify(window_class, pid, streams, runs_claude=None):
@@ -106,6 +110,9 @@ def classify(window_class, pid, streams, runs_claude=None):
     if pid and runs_claude(pid):
         return "volume", "Volume"
     if window_class in BROWSERS:
+        playing = [s for s in streams_for(window_class, pid, streams) if not s.get("corked")]
+        if playing:
+            return "app-volume", (playing[0]["name"] or "Browser") + " volume"
         return "tabs", "Tabs"
     if window_class in TERMINALS:
         return "zoom", "Font size"
