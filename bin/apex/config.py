@@ -29,6 +29,8 @@ DEFAULT = {
         "text": "",
         "image": LOGO_PATH,
         "interval_ms": 250,
+        # Switch to the Claude page while a session is busy or a Claude window is focused.
+        "claude_auto": True,
     },
     "wheel": {
         "mode": "volume",

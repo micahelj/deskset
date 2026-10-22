@@ -30,6 +30,13 @@ def active():
     return {"workspace": name, "window": title, "class": klass}
 
 
+def active_pid():
+    try:
+        return int(json.loads(_hypr("activewindow", "-j") or "{}").get("pid") or 0)
+    except (json.JSONDecodeError, TypeError, ValueError):
+        return 0
+
+
 def dispatch(lua, legacy):
     """Run a dispatcher. Hyprland 0.56+ (Lua config) evaluates `dispatch` as
     hl.dispatch(<lua>); older releases take the classic "name args" form."""

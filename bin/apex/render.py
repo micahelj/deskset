@@ -90,6 +90,100 @@ def workspace(name, title, t=0.0):
     return text_page(label, t=0, subtitle=title or "")
 
 
+# 1-bit homage to the Claude Code banner mascot: head with eye notches, arms, legs.
+_CLAWD_BODY = (
+    "....##########....",
+    "....##########....",
+    "....#..####..#....",
+    "....#..####..#....",
+    "##################",
+    "##################",
+    "..##############..",
+    "..##############..",
+)
+_CLAWD_BLINK_ROW = "....##########...."
+_CLAWD_LEGS = (
+    ("....#.#....#.#....",) * 3,                                              # standing
+    ("....#.#....#.#....", "...#.#....#.#.....", "...#.#....#.#....."),        # step left
+    ("....#.#....#.#....", ".....#.#....#.#...", ".....#.#....#.#..."),        # step right
+)
+_CLAUDE_LABEL = {
+    "waiting": "Needs you",
+    "working": "Working",
+    "thinking": "Thinking",
+    "done": "Done",
+    "idle": "Idle",
+    "none": "No sessions",
+}
+
+
+def _blit_rows(im, rows, x0, y0, scale=2):
+    px = im.load()
+    for y, row in enumerate(rows):
+        for x, c in enumerate(row):
+            if c != "#":
+                continue
+            for dy in range(scale):
+                for dx in range(scale):
+                    xx, yy = x0 + x * scale + dx, y0 + y * scale + dy
+                    if 0 <= xx < OLED_WIDTH and 0 <= yy < OLED_HEIGHT:
+                        px[xx, yy] = 255
+
+
+def claude_page(summary, usage=None, t=0.0):
+    """Claude Code activity: animated mascot, state, detail, 5-hour usage meter.
+
+    summary is claude.summary(); usage is a 0..1 fraction or None.
+    """
+    state = summary.get("state", "none")
+    tick = int(t * 4)  # 4 animation frames per second
+    rows = list(_CLAWD_BODY)
+    bob = 0
+    legs = _CLAWD_LEGS[0]
+    bang = False
+    if state in ("idle", "none", "done"):
+        if tick % 16 == 0:  # blink every 4 s
+            rows[2] = rows[3] = _CLAWD_BLINK_ROW
+    elif state == "thinking":
+        bob = -1 if (tick // 2) % 2 else 0
+    elif state == "working":
+        legs = _CLAWD_LEGS[1 + tick % 2]
+    elif state == "waiting":
+        bob = -2 if tick % 2 else 0
+        bang = tick % 4 < 3
+
+    im = blank()
+    draw = ImageDraw.Draw(im)
+    _blit_rows(im, rows + list(legs), 2, 8 + bob)
+    if bang:
+        draw.rectangle([40, 4, 41, 11], fill=255)
+        draw.rectangle([40, 14, 41, 15], fill=255)
+
+    label = _CLAUDE_LABEL.get(state, state.title())
+    if state == "thinking":
+        label += "." * (1 + (tick // 2) % 3)
+    _blit_text(draw, (46, 1), label, FONT_MD)
+
+    detail = summary.get("detail") or ""
+    count = summary.get("count", 0)
+    if not detail and count > 1:
+        detail = f"{count} sessions" if not summary.get("busy") else f"{summary['busy']} of {count} busy"
+    if detail:
+        room = OLED_WIDTH - 48
+        if _text_width(draw, detail, FONT_SM) > room:
+            while detail and _text_width(draw, detail + "…", FONT_SM) > room:
+                detail = detail[:-1]
+            detail += "…"
+        _blit_text(draw, (46, 15), detail, FONT_SM)
+
+    if usage is not None:
+        draw.rectangle([46, 34, 125, 37], outline=255)
+        fill = int(77 * max(0.0, min(1.0, usage)))
+        if fill:
+            draw.rectangle([47, 35, 47 + fill - 1, 36], fill=255)
+    return im
+
+
 def image_page(path):
     path = os.path.expanduser(path or LOGO_FALLBACK)
     if not os.path.isfile(path):
@@ -117,6 +211,8 @@ def render(page, state):
         return workspace(state.get("workspace", ""), state.get("window", ""), t)
     if page == "logo":
         return image_page(state.get("image"))
+    if page == "claude":
+        return claude_page(state.get("claude") or {}, state.get("usage"), t)
     if page == "text":
         return text_page(state.get("text", ""), t)
     return text_page(page)

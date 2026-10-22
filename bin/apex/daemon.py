@@ -11,6 +11,7 @@ import subprocess
 import sys
 import time
 
+from . import claude
 from . import config as cfgmod
 from . import devices
 from . import hypr
@@ -45,6 +46,8 @@ class Daemon:
         self.last_palette = 0.0
         self.last_rgb_retry = 0.0
         self.rgb_error = None
+        self.claude_focused = False
+        self.claude_focus_checked = 0.0
         self.oled_hash = None
         self.wheel_devs = []
         self.key_devs = []
@@ -134,7 +137,8 @@ class Daemon:
                 self.last_rgb = now
             interval = max(OLED_MIN_DT, self.cfg["oled"].get("interval_ms", 250) / 1000.0)
             page = self.cfg["oled"]["page"]
-            if page in ("clock", "logo", "clear"):
+            # Static pages redraw slowly, unless the animated Claude page may take over.
+            if page in ("clock", "logo", "clear") and not self.cfg["oled"].get("claude_auto", True):
                 interval = max(interval, 0.5)
             if now - self.last_oled >= interval:
                 self._push_oled()
@@ -391,8 +395,27 @@ class Daemon:
             self.openrgb.close()
             self.openrgb = None
 
-    def _oled_state(self):
+    def _claude_focused(self):
+        # Polling hyprctl and /proc at frame rate is wasteful; once a second is plenty.
+        now = time.monotonic()
+        if now - self.claude_focus_checked >= 1.0:
+            pid = hypr.active_pid()
+            self.claude_focused = bool(pid) and claude.window_runs_claude(pid)
+            self.claude_focus_checked = now
+        return self.claude_focused
+
+    def _effective_page(self):
+        """The saved page, or the Claude page while a session is busy or focused."""
         page = self.cfg["oled"]["page"]
+        if page == "claude" or not self.cfg["oled"].get("claude_auto", True):
+            return page, None
+        summary = claude.summary()
+        if summary["state"] in claude.ACTIVE or (summary["count"] and self._claude_focused()):
+            return "claude", summary
+        return page, None
+
+    def _oled_state(self):
+        page, summary = self._effective_page()
         state = {
             "t": time.monotonic() - self.t0,
             "text": self.cfg["oled"].get("text", ""),
@@ -402,6 +425,9 @@ class Daemon:
             state.update(mpris.now_playing())
         elif page == "workspace":
             state.update(hypr.active())
+        elif page == "claude":
+            state["claude"] = summary or claude.summary()
+            state["usage"] = claude.session_usage()
         return page, state
 
     def _push_oled(self, force=False):

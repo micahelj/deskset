@@ -143,6 +143,10 @@ def _local_oled(cfg, req):
         state.update(mpris.now_playing())
     elif page == "workspace":
         state.update(hypr.active())
+    elif page == "claude":
+        from . import claude
+        state["claude"] = claude.summary()
+        state["usage"] = claude.session_usage()
     frame = render.render(page, state)
     path = oled.send_image(frame)
     print(f"oled {page} -> {path}")
@@ -243,6 +247,12 @@ def cmd_daemon(_args):
     run()
 
 
+def cmd_claude_hook(_args):
+    # Claude Code hook entry point: event JSON on stdin, never fails or prints.
+    from . import claude
+    claude.handle_hook(sys.stdin.read())
+
+
 def build_parser():
     p = argparse.ArgumentParser(prog="apexctl", description="Control a SteelSeries Apex keyboard")
     p.add_argument("--version", action="version", version=f"apexctl {__version__}")
@@ -286,6 +296,8 @@ def build_parser():
 
     da = sub.add_parser("daemon", help="run the RGB / OLED / wheel daemon")
     da.set_defaults(func=cmd_daemon)
+    ch = sub.add_parser("claude-hook", help="record Claude Code activity (run by a Claude Code hook)")
+    ch.set_defaults(func=cmd_claude_hook)
     return p
 
 
