@@ -116,6 +116,11 @@ With several sessions open, the most urgent one is shown. A thin bar along
 the bottom shows how much of your 5-hour Claude limit is used, read from the
 Omarchy **Agents** widget's data; it is hidden when that data is missing.
 
+While any session is waiting for your permission, the **Esc** key also
+flashes orange (about once a second) on top of your normal lighting, so you
+notice even when the OLED shows another page. Turn it off with
+`"claude_esc": false` under `"rgb"` in `~/.config/omarchy/apex.json`.
+
 By default the OLED switches to this page by itself while any session is
 busy, or while the focused window is running `claude`, and goes back to
 your chosen page afterwards. To keep it only as a page you pick, set
