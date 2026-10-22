@@ -22,6 +22,7 @@ DEFAULT = {
         "brightness": 80,
         # Flash Escape orange while a Claude Code session needs you.
         "claude_esc": True,
+        "claude_esc_color": "#FF3C00",
         "speed": 45,
         "keys": {},
     },

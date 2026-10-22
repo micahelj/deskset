@@ -392,7 +392,8 @@ class Daemon:
             colors = rgbmod.apply_key_overrides(colors, self.cfg["rgb"].get("keys"))
             if self.cfg["rgb"].get("claude_esc", True):
                 waiting = self._claude_summary()["state"] == "waiting"
-                colors = rgbmod.apply_claude_alert(colors, waiting, time.monotonic() - self.t0)
+                alert = rgbmod.parse_hex(self.cfg["rgb"].get("claude_esc_color"), rgbmod.CLAUDE_ALERT)
+                colors = rgbmod.apply_claude_alert(colors, waiting, time.monotonic() - self.t0, alert)
             self.openrgb.set_colors(colors)
         except (OSError, RuntimeError) as exc:
             print(f"apexctl: rgb update failed: {exc}", file=sys.stderr)

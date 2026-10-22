@@ -109,6 +109,14 @@ class EscAlert(unittest.TestCase):
         others = [c for i, c in enumerate(on) if i != self.esc]
         self.assertEqual(others, [(10, 20, 30)] * (len(self.base) - 1))
 
+    def test_custom_color(self):
+        out = self.rgb.apply_claude_alert(self.base, True, t=0.0, color=(1, 2, 3))
+        self.assertEqual(out[self.esc], (1, 2, 3))
+
+    def test_default_is_the_chosen_orange(self):
+        from apex import config
+        self.assertEqual(self.rgb.parse_hex(config.DEFAULT["rgb"]["claude_esc_color"]), self.rgb.CLAUDE_ALERT)
+
     def test_no_change_when_not_waiting(self):
         self.assertEqual(self.rgb.apply_claude_alert(self.base, False, t=0.0), self.base)
 

@@ -117,17 +117,19 @@ def theme_color_for(key, palette):
     return palette["selection"]
 
 
-CLAUDE_ALERT = (255, 90, 0)  # orange; LEDs need little green to read as orange
+# Red-leaning orange: on Apex LEDs this reads closest to Claude's orange
+# (picked side by side against #FF5A00, #FF7800 and #D97757).
+CLAUDE_ALERT = (255, 60, 0)
 CLAUDE_ALERT_HZ = 1.25
 
 
-def apply_claude_alert(colors, waiting, t):
-    """Flash Escape orange while a Claude Code session needs you; other keys untouched."""
+def apply_claude_alert(colors, waiting, t, color=CLAUDE_ALERT):
+    """Flash Escape while a Claude Code session needs you; other keys untouched."""
     if not waiting or "Escape" not in LEDS:
         return colors
     out = list(colors)
     on = (t * CLAUDE_ALERT_HZ) % 1.0 < 0.55
-    out[LEDS.index("Escape")] = CLAUDE_ALERT if on else scale_color(CLAUDE_ALERT, 12)
+    out[LEDS.index("Escape")] = color if on else scale_color(color, 12)
     return out
 
 
