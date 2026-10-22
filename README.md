@@ -123,6 +123,14 @@ Omarchy theme's `colors.toml` (such as `"accent"` or `"green"`). Saturated
 colours read best: LEDs wash pastels toward white. Turn the feature off with
 `"workspace_keys": false`.
 
+## Lights out when away
+
+The keyboard lighting and the OLED go dark while the Omarchy idle
+screensaver is up or the screen is locked, and come back as soon as you
+return. The screensaver is noticed instantly from Hyprland's window events;
+the lock is checked every 2 seconds. Typing still works while dark. Turn it
+off with `"away_dark": false` under `"rgb"` in `~/.config/omarchy/apex.json`.
+
 ## System monitor
 
 The **system** OLED page shows three rows, each with a value and about a
