@@ -26,7 +26,7 @@ def _font(path, size):
 
 FONT_LG = _font(FONT_MONO, 18)
 FONT_MD = _font(FONT_REG, 11)
-FONT_SM = _font(FONT_REG, 9)
+FONT_SM = _font(FONT_REG, 10)
 
 
 def blank(color=0):
@@ -39,6 +39,9 @@ def _text_width(draw, text, font):
 
 
 def _blit_text(draw, xy, text, font, fill=255):
+    # Draw 1-bit glyphs: antialiased edges fall below the OLED threshold and
+    # leave gaps in small text.
+    draw.fontmode = "1"
     draw.text(xy, text, font=font, fill=fill)
 
 
