@@ -64,8 +64,9 @@ path = find_oled_hidraw()
 sys.exit(0 if path and os.access(path, os.W_OK) else 1)
 PY
 then
-  say "OLED hidraw is not writable yet. Install udev rules:"
-  say "  sudo cp $SCRIPT_DIR/udev/99-steelseries-apex.rules /etc/udev/rules.d/"
+  say "OLED hidraw is not writable yet. Install the udev rules for your keyboard:"
+  say "  Apex 7 / Apex 7 TKL:    sudo cp $SCRIPT_DIR/udev/99-steelseries-apex.rules /etc/udev/rules.d/"
+  say "  Apex Pro TKL Gen 3:     sudo cp $SCRIPT_DIR/udev/70-steelseries-apex-pro-tkl-gen3.rules /etc/udev/rules.d/"
   say "  sudo udevadm control --reload && sudo udevadm trigger"
 fi
 

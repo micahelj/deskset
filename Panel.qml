@@ -12,7 +12,8 @@ Panel {
   manageIpc: true
 
   property var status: ({
-    device: "Apex 7 TKL",
+    device: "Apex",
+    short: "Apex",
     rgb: { mode: "theme", brightness: 80, speed: 45, solid: "#89b4fa" },
     oled: { page: "clock" },
     wheel: { mode: "volume" },
@@ -51,10 +52,13 @@ Panel {
     return String(value).replace(/-/g, " ")
   }
 
-  Component.onCompleted: {
+  // Installing adds a user service, hooks and a ~/.local/bin link, so it only
+  // runs when asked from the panel, never on load.
+  function setup() {
     if (!installProc.running) installProc.running = true
-    root.refresh()
   }
+
+  Component.onCompleted: root.refresh()
   onOpenedChanged: if (opened) root.refresh()
 
   Timer {
@@ -68,6 +72,7 @@ Panel {
     id: installProc
     command: ["bash", root.pluginDir + "/install", "--silent"]
     stdout: StdioCollector { waitForEnd: true }
+    onRunningChanged: if (!running) root.refresh()
   }
 
   Process {
@@ -154,7 +159,7 @@ Panel {
             anchors.verticalCenter: parent.verticalCenter
             spacing: 0
             Text {
-              text: "Apex 7 TKL"
+              text: root.status.short || "Apex"
               color: root.bar.foreground
               font.family: root.bar.fontFamily
               font.pixelSize: Style.font.title
@@ -170,6 +175,16 @@ Panel {
           }
         }
 
+        Button {
+          visible: root.status.daemon === false
+          text: installProc.running ? "Setting up…" : "Set up background service"
+          foreground: root.bar.foreground
+          fontFamily: root.bar.fontFamily
+          fontSize: Style.font.caption
+          bordered: true
+          onClicked: root.setup()
+        }
+
         PanelSeparator { foreground: root.bar.foreground }
         PanelSectionHeader { text: "RGB"; foreground: root.bar.foreground; fontFamily: root.bar.fontFamily }
 
@@ -177,7 +192,8 @@ Panel {
           width: parent.width
           spacing: Style.spacing.xs
           Repeater {
-            model: root.rgbModes
+            // Reactive needs keystroke access, which the Gen 3 udev rule withholds.
+            model: root.rgbModes.filter(m => !(m === "reactive" && root.status.rgb_backend === "hid"))
             Button {
               required property string modelData
               text: root.pretty(modelData)

@@ -8,6 +8,7 @@ from datetime import datetime
 
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 
+from . import devices
 from .config import LOGO_PATH
 from .oled import OLED_HEIGHT, OLED_WIDTH
 
@@ -66,7 +67,7 @@ def clock(_state, now=None):
 def text_page(message, t=0.0, subtitle=""):
     im = blank()
     draw = ImageDraw.Draw(im)
-    message = (message or "").strip() or "Apex 7 TKL"
+    message = (message or "").strip() or devices.current().short
     x = _scroll_x(message, FONT_MD, t)
     _blit_text(draw, (x, 4 if subtitle else 12), message, FONT_MD)
     if subtitle:

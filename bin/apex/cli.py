@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""apexctl — SteelSeries Apex 7 TKL RGB, OLED, and scroll-wheel control."""
+"""apexctl — SteelSeries Apex RGB, OLED, and scroll-wheel control."""
 
 from __future__ import annotations
 
@@ -11,6 +11,7 @@ import sys
 
 from . import __version__
 from . import config as cfgmod
+from . import devices
 from . import oled
 from . import render
 from . import rgb as rgbmod
@@ -46,7 +47,7 @@ def _print_status(data, as_json=False):
     oled_cfg = data.get("oled", {})
     wheel = data.get("wheel", {})
     print(f"device     {data.get('device', '?')}")
-    print(f"openrgb    {'yes' if data.get('openrgb') else 'no'}")
+    print(f"rgb via    {data.get('rgb_backend', 'openrgb')}  ({'connected' if data.get('openrgb') else 'not connected'})")
     print(f"oled       {data.get('oled_hid') or 'missing'}")
     print(f"rgb        {rgb.get('mode')}  brightness={rgb.get('brightness')}  speed={rgb.get('speed')}")
     if rgb.get("mode") == "solid":
@@ -61,14 +62,17 @@ def cmd_status(args):
     data = _talk({"cmd": "status"})
     if data is None:
         cfg = cfgmod.load()
+        profile = devices.current()
         data = {
             "ok": True,
             "connected": bool(oled.find_oled_hidraw()),
-            "device": "SteelSeries Apex 7 TKL",
+            "device": profile.name,
+            "short": profile.short,
+            "rgb_backend": profile.rgb,
             "rgb": cfg["rgb"],
             "oled": cfg["oled"],
             "wheel": cfg["wheel"],
-            "openrgb": False,
+            "openrgb": profile.rgb == "hid" and bool(oled.find_oled_hidraw()),
             "oled_hid": oled.find_oled_hidraw(),
             "daemon": False,
         }
@@ -108,7 +112,7 @@ def _local_rgb(cfg, req):
     palette = rgbmod.load_palette()
     colors = rgbmod.effect_colors(rgb["mode"], 0, palette, rgb["solid"], rgb["brightness"], profile=rgb.get("profile"))
     colors = rgbmod.apply_key_overrides(colors, rgb.get("keys"))
-    client = rgbmod.OpenRGB()
+    client = rgbmod.connect()
     try:
         client.set_colors(colors)
         print(f"applied {rgb['mode']} to {client.device[1]}")
@@ -240,7 +244,7 @@ def cmd_daemon(_args):
 
 
 def build_parser():
-    p = argparse.ArgumentParser(prog="apexctl", description="Control a SteelSeries Apex 7 TKL")
+    p = argparse.ArgumentParser(prog="apexctl", description="Control a SteelSeries Apex keyboard")
     p.add_argument("--version", action="version", version=f"apexctl {__version__}")
     sub = p.add_subparsers(dest="cmd", required=True)
 
@@ -274,7 +278,7 @@ def build_parser():
     wh.add_argument("--no-invert", dest="invert", action="store_false")
     wh.set_defaults(func=cmd_wheel)
 
-    ky = sub.add_parser("keys", help="list OpenRGB LED names")
+    ky = sub.add_parser("keys", help="list LED names for per-key overrides")
     ky.set_defaults(func=cmd_keys)
 
     pf = sub.add_parser("profiles", help="list gradient color profiles")

@@ -1,4 +1,4 @@
-"""Apex 7 TKL OLED (128x40) via HID feature reports on interface 1."""
+"""Apex OLED (128x40) via HID feature reports on the control interface."""
 
 from __future__ import annotations
 
@@ -7,12 +7,15 @@ import os
 
 from PIL import Image
 
+from . import devices
+
 OLED_WIDTH = 128
 OLED_HEIGHT = 40
 OLED_REPORT_ID = 0x61
-VENDOR = 0x1038
-PRODUCT = 0x1618
-OLED_INTERFACE = 1
+# Gen 3: 00 1F 81 + 640 bytes + pad. 0x81 is the live framebuffer; never use
+# 0x83, which persists the image in the keyboard's own memory.
+GEN3_HEADER = bytes([0x00, 0x1F, 0x81])
+GEN3_REPORT_LENGTH = 644
 
 _IOC_WRITE = 1
 _IOC_READ = 2
@@ -26,46 +29,21 @@ def hidios_feature(length):
     return _ioc(_IOC_WRITE | _IOC_READ, "H", 0x06, length)
 
 
-def _hid_id(sys_path):
-    try:
-        with open(os.path.join(sys_path, "device", "uevent"), encoding="utf-8") as fh:
-            for line in fh:
-                if line.startswith("HID_ID="):
-                    parts = line.strip().split("=")[1].split(":")
-                    return int(parts[1], 16), int(parts[2], 16)
-    except (OSError, ValueError, IndexError):
-        pass
-    return None, None
+def find_oled_hidraw():
+    _profile, path = devices.detect()
+    return path
 
 
-def _interface_number(sys_path):
-    iface = os.path.join(sys_path, "device", "..", "bInterfaceNumber")
-    try:
-        return int(open(iface, encoding="utf-8").read().strip(), 16)
-    except (OSError, ValueError):
-        return None
-
-
-def find_oled_hidraw(vendor=VENDOR, product=PRODUCT, interface=OLED_INTERFACE):
-    try:
-        names = sorted(os.listdir("/sys/class/hidraw"))
-    except OSError:
-        return None
-    for name in names:
-        sys_path = os.path.join("/sys/class/hidraw", name)
-        vid, pid = _hid_id(sys_path)
-        if vid != vendor or pid != product:
-            continue
-        if _interface_number(sys_path) == interface:
-            return os.path.join("/dev", name)
-    return None
-
-
-def image_to_report(image: Image.Image) -> bytes:
+def _mono(image: Image.Image):
     im = image.convert("L")
     if im.size != (OLED_WIDTH, OLED_HEIGHT):
         im = im.resize((OLED_WIDTH, OLED_HEIGHT), Image.Resampling.LANCZOS)
-    pix = im.load()
+    return im.load()
+
+
+def image_to_report(image: Image.Image) -> bytes:
+    """Apex 7: row-major, MSB-first."""
+    pix = _mono(image)
     bits = []
     for y in range(OLED_HEIGHT):
         for x in range(OLED_WIDTH):
@@ -74,10 +52,25 @@ def image_to_report(image: Image.Image) -> bytes:
     return bytes([OLED_REPORT_ID, *payload, 0x00])
 
 
+def image_to_gen3_report(image: Image.Image) -> bytes:
+    """Gen 3: five 128-byte pages; byte page*128+x holds (x, page*8..+7), bit 0 on top."""
+    pix = _mono(image)
+    out = bytearray(GEN3_REPORT_LENGTH)
+    out[:3] = GEN3_HEADER
+    for page in range(OLED_HEIGHT // 8):
+        for x in range(OLED_WIDTH):
+            byte = 0
+            for bit in range(8):
+                if pix[x, page * 8 + bit] > 127:
+                    byte |= 1 << bit
+            out[3 + page * OLED_WIDTH + x] = byte
+    return bytes(out)
+
+
 def send_report(data: bytes, hidraw=None):
     path = hidraw or find_oled_hidraw()
     if not path:
-        raise FileNotFoundError("Apex 7 TKL OLED hidraw (interface 1) not found")
+        raise FileNotFoundError("Apex OLED hidraw (control interface) not found")
     buf = bytearray(data)
     fd = os.open(path, os.O_RDWR)
     try:
@@ -88,7 +81,10 @@ def send_report(data: bytes, hidraw=None):
 
 
 def send_image(image: Image.Image, hidraw=None):
-    return send_report(image_to_report(image), hidraw=hidraw)
+    profile, path = devices.detect()
+    if profile and profile.oled == "gen3":
+        return send_report(image_to_gen3_report(image), hidraw=hidraw or path)
+    return send_report(image_to_report(image), hidraw=hidraw or path)
 
 
 def send_file(path, hidraw=None):

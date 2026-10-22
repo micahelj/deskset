@@ -12,6 +12,7 @@ import sys
 import time
 
 from . import config as cfgmod
+from . import devices
 from . import hypr
 from . import mpris
 from . import oled
@@ -42,6 +43,8 @@ class Daemon:
         self.last_rgb = 0.0
         self.last_oled = 0.0
         self.last_palette = 0.0
+        self.last_rgb_retry = 0.0
+        self.rgb_error = None
         self.oled_hash = None
         self.wheel_devs = []
         self.key_devs = []
@@ -64,9 +67,12 @@ class Daemon:
 
     def _connect_rgb(self):
         try:
-            self.openrgb = rgbmod.OpenRGB()
+            self.openrgb = rgbmod.connect()
+            self.rgb_error = None
         except (OSError, RuntimeError) as exc:
-            print(f"apexctl: OpenRGB unavailable ({exc})", file=sys.stderr)
+            if str(exc) != self.rgb_error:
+                print(f"apexctl: RGB unavailable ({exc})", file=sys.stderr)
+            self.rgb_error = str(exc)
             self.openrgb = None
 
     def _open_inputs(self):
@@ -182,13 +188,16 @@ class Daemon:
             self._drop(conn)
 
     def status(self):
+        profile = devices.current()
         rgb_dev = None
         if self.openrgb:
             rgb_dev = self.openrgb.device[1]
         return {
             "ok": True,
             "connected": bool(self.openrgb) or bool(oled.find_oled_hidraw()),
-            "device": rgb_dev or "SteelSeries Apex 7 TKL",
+            "device": rgb_dev or profile.name,
+            "short": profile.short,
+            "rgb_backend": profile.rgb,
             "rgb": dict(self.cfg["rgb"]),
             "oled": dict(self.cfg["oled"]),
             "wheel": dict(self.cfg["wheel"]),
@@ -356,7 +365,10 @@ class Daemon:
 
     def _push_rgb(self, force=False):
         if not self.openrgb:
-            if force:
+            # Retry now and then so a replugged keyboard picks its lighting back up.
+            now = time.monotonic()
+            if force or now - self.last_rgb_retry > 5.0:
+                self.last_rgb_retry = now
                 self._connect_rgb()
             if not self.openrgb:
                 return
@@ -376,6 +388,7 @@ class Daemon:
             self.openrgb.set_colors(colors)
         except (OSError, RuntimeError) as exc:
             print(f"apexctl: rgb update failed: {exc}", file=sys.stderr)
+            self.openrgb.close()
             self.openrgb = None
 
     def _oled_state(self):
@@ -419,7 +432,16 @@ class Daemon:
         except OSError:
             pass
         if self.openrgb:
+            if hasattr(self.openrgb, "restore"):
+                self.openrgb.restore()
             self.openrgb.close()
+        # Gen 3 firmware ignores "reset to default screen", so blank it rather
+        # than leave a frozen page behind.
+        if devices.current().oled == "gen3":
+            try:
+                oled.clear()
+            except OSError:
+                pass
 
 
 def run():

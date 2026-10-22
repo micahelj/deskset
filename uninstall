@@ -18,5 +18,5 @@ done
 rm -f "$HOME/.config/omarchy/hooks/theme-set.d/apply-keyboard-rgb"
 rm -f "$HOME/.config/omarchy/hooks/post-boot.d/apexctl"
 
-echo "Done. Then run: omarchy plugin remove sonic.apex"
+echo "Done. Then run: omarchy plugin remove io.github.davidzu.sonic_apex"
 echo "User config kept at ~/.config/omarchy/apex.json"

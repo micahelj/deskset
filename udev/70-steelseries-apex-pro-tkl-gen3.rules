@@ -1,0 +1,10 @@
+# SteelSeries Apex Pro TKL Gen 3 (1038:1642).
+# Interface 1 (hidraw): OLED + per-key RGB control channel.
+# Interface 3 (input events): the OLED scroll wheel and media keys.
+# Interfaces 0 and 2 carry typed keystrokes and are deliberately left
+# root-only, so the "reactive" RGB mode is unavailable on this keyboard.
+# Install with:
+#   sudo cp 70-steelseries-apex-pro-tkl-gen3.rules /etc/udev/rules.d/
+#   sudo udevadm control --reload && sudo udevadm trigger
+SUBSYSTEM=="hidraw", ENV{ID_VENDOR_ID}=="1038", ENV{ID_MODEL_ID}=="1642", ENV{ID_USB_INTERFACE_NUM}=="01", TAG+="uaccess"
+SUBSYSTEM=="input", KERNEL=="event*", ENV{ID_VENDOR_ID}=="1038", ENV{ID_MODEL_ID}=="1642", ENV{ID_USB_INTERFACE_NUM}=="03", TAG+="uaccess"

@@ -1,4 +1,4 @@
-"""OpenRGB SDK client and color helpers for the Apex 7 TKL."""
+"""RGB backends (OpenRGB SDK, direct HID) and color helpers for Apex keyboards."""
 
 from __future__ import annotations
 
@@ -219,6 +219,15 @@ class OpenRGB:
         payload = struct.pack("I", data_size) + payload[4:]
         self._send(idx, CMD_UPDATEZONE, payload)
         self.drain()
+
+
+def connect():
+    """RGB backend for the connected keyboard: direct HID on Gen 3, else OpenRGB."""
+    from . import devices
+    if devices.current().rgb == "hid":
+        from .hidrgb import HidRGB
+        return HidRGB()
+    return OpenRGB()
 
 
 def effect_colors(mode, t, palette, solid, brightness, reactive_keys=None, profile=None):

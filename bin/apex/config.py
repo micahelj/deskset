@@ -26,7 +26,7 @@ DEFAULT = {
     "oled": {
         "page": "clock",
         "pages": ["clock", "now-playing", "workspace", "logo"],
-        "text": "Apex 7 TKL",
+        "text": "",
         "image": LOGO_PATH,
         "interval_ms": 250,
     },
