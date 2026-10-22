@@ -99,6 +99,29 @@ apexctl oled claude
 apexctl wheel workspace
 ```
 
+## Workspace keys
+
+The number row shows your Hyprland workspaces: keys **1**–**9** are
+workspaces 1–9 and **0** is workspace 10. Every key stays lit; the colour
+says what the workspace is doing:
+
+| Colour | Workspace |
+|---|---|
+| white | active, on the focused monitor |
+| magenta | shown on another monitor |
+| green | has windows, but is not on screen |
+| deep blue | empty |
+
+It updates instantly from Hyprland's event socket and sits on top of any
+lighting mode. A calm background makes it easiest to read, for example
+`apexctl rgb solid -c '#106050'` (dim teal).
+
+Change the colours with `"workspace_colors"` under `"rgb"` in
+`~/.config/omarchy/apex.json`, using `#RRGGBB` or any colour name from your
+Omarchy theme's `colors.toml` (such as `"accent"` or `"green"`). Saturated
+colours read best: LEDs wash pastels toward white. Turn the feature off with
+`"workspace_keys": false`.
+
 ## Claude Code activity
 
 The **claude** OLED page shows what [Claude Code](https://claude.com/claude-code)
