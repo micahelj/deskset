@@ -98,6 +98,11 @@ apexctl wheel workspace
 The **claude** OLED page shows what [Claude Code](https://claude.com/claude-code)
 is doing, with a small pixel mascot:
 
+![The Claude page in four states: Working, Needs you, Thinking and Idle](docs/media/claude-page.png)
+
+<sub>Frames rendered by the plugin's own OLED code at 4× scale, not a photo
+of the keyboard. Regenerate with `python3 scripts/claude_preview.py`.</sub>
+
 | State | Mascot | Text |
 |---|---|---|
 | Waiting for your permission | jumps, with a `!` | `Needs you` · `Allow Bash?` |
@@ -182,6 +187,9 @@ On the target Omarchy machine also run `omarchy plugin validate .` and record
 the installed `omarchy-version`. Portable validation covers structure and
 metadata only; it does not establish live desktop compatibility. Record
 actual tests in [docs/ACCEPTANCE.json](docs/ACCEPTANCE.json).
+
+After changing the Claude page's drawing, regenerate its README image with
+`python3 scripts/claude_preview.py`.
 
 [Architecture](ARCHITECTURE.md) · [Developing](docs/DEVELOPMENT.md) · [Release process](docs/RELEASE.md) · [Contributing](CONTRIBUTING.md)
 
