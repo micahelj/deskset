@@ -26,6 +26,9 @@ RELEVANT = {
 MIN_REFRESH = 0.05
 RECONNECT = 5.0
 
+# Omarchy's idle screensaver runs as a window of this class.
+SCREENSAVER_CLASS = "org.omarchy.screensaver"
+
 # Number-row LED name for workspaces 1-10.
 KEY_FOR = {i: str(i) for i in range(1, 10)}
 KEY_FOR[10] = "0"
@@ -74,6 +77,7 @@ class Tracker:
         self.state = {}
         self.active_address = None
         self.focus_changed = False
+        self.screensavers = set()  # addresses of open screensaver windows
         self.connect()
 
     def connect(self):
@@ -109,6 +113,12 @@ class Tracker:
             event, _, data = line.decode(errors="replace").partition(">>")
             if event in RELEVANT:
                 self.dirty = True
+            if event == "openwindow":  # ADDRESS,WORKSPACE,CLASS,TITLE
+                parts = data.split(",", 3)
+                if len(parts) >= 3 and parts[2] == SCREENSAVER_CLASS:
+                    self.screensavers.add(parts[0])
+            elif event == "closewindow":
+                self.screensavers.discard(data)
             elif event == "activewindowv2" and data != self.active_address:
                 # By address: title changes (a busy terminal) repeat the same window.
                 self.active_address = data

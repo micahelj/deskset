@@ -89,6 +89,7 @@ class Events(unittest.TestCase):
         t.buf, t.dirty, t.state = b"", False, {}
         t.last_refresh = t.last_connect = 0.0
         t.active_address, t.focus_changed = None, False
+        t.screensavers = set()
         return t, peer
 
     def test_focus_change_by_address_not_title(self):

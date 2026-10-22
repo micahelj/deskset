@@ -19,13 +19,14 @@ from . import gpu as gpumod
 from . import hypr
 from . import mpris
 from . import oled
+from . import presence
 from . import render
 from . import rgb as rgbmod
 from . import sysmon
 from . import wheelapp
 from . import wheel as wheelmod
 from . import workspaces
-from .layout import KEYCODE_TO_LED, OLED_PAGES, RGB_MODES, WHEEL_MODES
+from .layout import KEYCODE_TO_LED, LEDS, OLED_PAGES, RGB_MODES, WHEEL_MODES
 
 RGB_FPS = 24
 TOAST_SECONDS = 1.5  # OLED feedback for the app wheel
@@ -63,6 +64,8 @@ class Daemon:
         self.last_sample = 0.0
         self.toast_state = None  # (until, title, subtitle)
         self.appwheel = wheelapp.AppWheel(self._toast)
+        self.lockwatch = presence.LockWatch()
+        self.was_away = False
         self.oled_hash = None
         self.wheel_devs = []
         self.key_devs = []
@@ -153,6 +156,14 @@ class Daemon:
                 self.palette = rgbmod.load_palette()
                 self.last_palette = now
             self._decay_reactive(now)
+            away = self._away()
+            if away != self.was_away:
+                self.was_away = away
+                if away and self.cheat.active:
+                    self.cheat.close()
+                    self._apply_wheel_grab()
+                self._push_oled(force=True)
+                self._push_rgb(force=True)
             if self.workspaces and self.workspaces.focus_changed:
                 self.workspaces.focus_changed = False
                 if self.cfg["wheel"]["mode"] == "app":
@@ -439,6 +450,10 @@ class Daemon:
         mode = self.cfg["rgb"]["mode"]
         ages = {k: time.monotonic() - ts for k, ts in self.reactive.items()}
         try:
+            if self._away():
+                # Locked or screensaver: dark keyboard, nothing on top.
+                self.openrgb.set_colors([(0, 0, 0)] * len(LEDS))
+                return
             if self.cheat.active:
                 # The cheat sheet owns the whole board while it is open.
                 colors = self.cheat.colors(time.monotonic() - self.t0, self.cfg["rgb"]["brightness"])
@@ -494,11 +509,20 @@ class Daemon:
             return "claude", summary
         return page, None
 
+    def _away(self):
+        """Screen locked or the idle screensaver up (and the feature is on)."""
+        if not self.cfg["rgb"].get("away_dark", True):
+            return False
+        screensaver = bool(self.workspaces and self.workspaces.screensavers)
+        return screensaver or self.lockwatch.locked
+
     def _toast(self, title, subtitle=""):
         # Called from the wheel worker thread; a tuple swap is atomic.
         self.toast_state = (time.monotonic() + TOAST_SECONDS, title, subtitle)
 
     def _oled_state(self):
+        if self._away():
+            return "clear", {"t": time.monotonic() - self.t0}
         if self.cheat.active:
             return "cheatsheet", {"cheatsheet": self.cheat.oled_state(), "t": time.monotonic() - self.t0}
         toast = self.toast_state
