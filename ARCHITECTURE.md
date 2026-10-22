@@ -11,7 +11,8 @@ Ownership map:
   connected keyboard and picks its OLED format and RGB transport),
   `rgb.py` (effects, OpenRGB SDK on 127.0.0.1:6742, backend selection),
   `hidrgb.py` (direct per-key HID RGB for the Apex Pro TKL Gen 3),
-  `oled.py` (USB HID interface 1), `wheel.py`, `hypr.py`
+  `oled.py` (USB HID interface 1), `claude.py` (Claude Code hook state
+  and session summary for the `claude` OLED page), `wheel.py`, `hypr.py`
   (Hyprland integration), `mpris.py` (media titles for the OLED),
   `config.py`, `layout.py`, `render.py` (OLED frame rendering).
 - `hooks/` — post-boot and theme-set hooks so lighting follows

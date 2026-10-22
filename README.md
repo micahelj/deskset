@@ -80,8 +80,8 @@ Unplug/replug the keyboard if it still cannot open the device.
 ## Use it
 
 Click the **Apex Keyboard** widget in the bar (right section) to open the
-panel: RGB effects, OLED pages (clock, media, workspace, logo), and wheel
-modes.
+panel: RGB effects, OLED pages (clock, media, workspace, logo, Claude), and
+wheel modes.
 
 CLI examples:
 
@@ -89,8 +89,74 @@ CLI examples:
 apexctl status
 apexctl rgb wave --speed 60
 apexctl oled clock
+apexctl oled claude
 apexctl wheel workspace
 ```
+
+## Claude Code activity
+
+The **claude** OLED page shows what [Claude Code](https://claude.com/claude-code)
+is doing, with a small pixel mascot:
+
+| State | Mascot | Text |
+|---|---|---|
+| Waiting for your permission | jumps, with a `!` | `Needs you` · `Allow Bash?` |
+| Running a tool | walks | `Working` · `Edit: render.py` |
+| Between tool calls | bobs | `Thinking…` |
+| Reply finished (about 20 s) | blinks | `Done` |
+| Nothing happening | blinks | `Idle` · session count |
+
+With several sessions open, the most urgent one is shown. A thin bar along
+the bottom shows how much of your 5-hour Claude limit is used, read from the
+Omarchy **Agents** widget's data; it is hidden when that data is missing.
+
+By default the OLED switches to this page by itself while any session is
+busy, or while the focused window is running `claude`, and goes back to
+your chosen page afterwards. To keep it only as a page you pick, set
+`"claude_auto": false` under `"oled"` in `~/.config/omarchy/apex.json`.
+
+### Turn it on
+
+The page is fed by Claude Code hooks. Add these to `~/.claude/settings.json`,
+merging with any `hooks` you already have, and replace `YOU` with your
+username (the path must be absolute):
+
+```json
+{
+  "hooks": {
+    "SessionStart":       [{ "hooks": [{ "type": "command", "command": "/home/YOU/.local/bin/apexctl", "args": ["claude-hook"], "async": true, "timeout": 5 }] }],
+    "UserPromptSubmit":   [{ "hooks": [{ "type": "command", "command": "/home/YOU/.local/bin/apexctl", "args": ["claude-hook"], "async": true, "timeout": 5 }] }],
+    "PreToolUse":         [{ "hooks": [{ "type": "command", "command": "/home/YOU/.local/bin/apexctl", "args": ["claude-hook"], "async": true, "timeout": 5 }] }],
+    "PostToolUse":        [{ "hooks": [{ "type": "command", "command": "/home/YOU/.local/bin/apexctl", "args": ["claude-hook"], "async": true, "timeout": 5 }] }],
+    "PostToolUseFailure": [{ "hooks": [{ "type": "command", "command": "/home/YOU/.local/bin/apexctl", "args": ["claude-hook"], "async": true, "timeout": 5 }] }],
+    "PermissionRequest":  [{ "hooks": [{ "type": "command", "command": "/home/YOU/.local/bin/apexctl", "args": ["claude-hook"], "async": true, "timeout": 5 }] }],
+    "PermissionDenied":   [{ "hooks": [{ "type": "command", "command": "/home/YOU/.local/bin/apexctl", "args": ["claude-hook"], "async": true, "timeout": 5 }] }],
+    "Notification":       [{ "matcher": "permission_prompt", "hooks": [{ "type": "command", "command": "/home/YOU/.local/bin/apexctl", "args": ["claude-hook"], "async": true, "timeout": 5 }] }],
+    "Stop":               [{ "hooks": [{ "type": "command", "command": "/home/YOU/.local/bin/apexctl", "args": ["claude-hook"], "async": true, "timeout": 5 }] }],
+    "StopFailure":        [{ "hooks": [{ "type": "command", "command": "/home/YOU/.local/bin/apexctl", "args": ["claude-hook"], "async": true, "timeout": 5 }] }],
+    "SessionEnd":         [{ "hooks": [{ "type": "command", "command": "/home/YOU/.local/bin/apexctl", "args": ["claude-hook"], "async": true, "timeout": 5 }] }]
+  }
+}
+```
+
+`apexctl` must already be on your `PATH` (click **Set up background
+service** first). The hooks run in the background, so they never slow Claude
+Code down, and a failing hook is silently ignored. Review or disable them
+with `/hooks` in Claude Code.
+
+**What is recorded:** one small status file per session in
+`$XDG_RUNTIME_DIR/apex-claude/` (private to you, cleared on reboot) holding
+the state, the tool name, and at most a file's base name. Command text, file
+contents and prompts are never stored. Sessions disappear when their `claude`
+process exits.
+
+**Known limits:** in terminals that run every window from one process (such
+as Ghostty), any window of that terminal counts as "focused" while one of
+them runs `claude`. Because the hooks run in the background, a very fast
+tool can occasionally show `Working` a moment longer than it ran.
+
+The mascot is an original 1-bit drawing in the spirit of the Claude Code
+startup banner.
 
 ## Remove
 
@@ -101,7 +167,8 @@ omarchy plugin remove io.github.davidzu.sonic_apex
 
 `uninstall` stops the service and removes the `apexctl` link and hooks; your
 settings in `~/.config/omarchy/apex.json` are kept. Remove any udev rule you
-copied into `/etc/udev/rules.d/` by hand.
+copied into `/etc/udev/rules.d/` by hand, and delete the `apexctl
+claude-hook` entries from `~/.claude/settings.json` if you added them.
 
 ## Development
 
