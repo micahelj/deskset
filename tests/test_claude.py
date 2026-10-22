@@ -94,6 +94,32 @@ class Usage(unittest.TestCase):
         self.assertIsNone(claude.session_usage("/nonexistent/claude.json"))
 
 
+class EscAlert(unittest.TestCase):
+    def setUp(self):
+        from apex import layout, rgb
+        self.layout, self.rgb = layout, rgb
+        self.base = [(10, 20, 30)] * len(layout.LEDS)
+        self.esc = layout.LEDS.index("Escape")
+
+    def test_flashes_escape_only_while_waiting(self):
+        on = self.rgb.apply_claude_alert(self.base, True, t=0.0)
+        off = self.rgb.apply_claude_alert(self.base, True, t=0.6)
+        self.assertEqual(on[self.esc], self.rgb.CLAUDE_ALERT)
+        self.assertNotEqual(off[self.esc], self.rgb.CLAUDE_ALERT)
+        others = [c for i, c in enumerate(on) if i != self.esc]
+        self.assertEqual(others, [(10, 20, 30)] * (len(self.base) - 1))
+
+    def test_no_change_when_not_waiting(self):
+        self.assertEqual(self.rgb.apply_claude_alert(self.base, False, t=0.0), self.base)
+
+    def test_escape_reaches_the_keyboard(self):
+        from apex import hidrgb
+        colors = self.rgb.apply_claude_alert(self.base, True, t=0.0)
+        report = hidrgb.build_report(colors)
+        entries = [report[3 + i * 4:7 + i * 4] for i in range(report[2])]
+        self.assertIn(bytes([0x29, *self.rgb.CLAUDE_ALERT]), entries)  # Escape = HID 0x29
+
+
 class Page(unittest.TestCase):
     def test_renders_every_state(self):
         for state in ("waiting", "working", "thinking", "done", "idle", "none"):

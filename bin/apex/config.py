@@ -20,6 +20,8 @@ DEFAULT = {
         "solid": "#89b4fa",
         "profile": "sunset",
         "brightness": 80,
+        # Flash Escape orange while a Claude Code session needs you.
+        "claude_esc": True,
         "speed": 45,
         "keys": {},
     },

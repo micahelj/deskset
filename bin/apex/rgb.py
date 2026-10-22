@@ -117,6 +117,20 @@ def theme_color_for(key, palette):
     return palette["selection"]
 
 
+CLAUDE_ALERT = (255, 90, 0)  # orange; LEDs need little green to read as orange
+CLAUDE_ALERT_HZ = 1.25
+
+
+def apply_claude_alert(colors, waiting, t):
+    """Flash Escape orange while a Claude Code session needs you; other keys untouched."""
+    if not waiting or "Escape" not in LEDS:
+        return colors
+    out = list(colors)
+    on = (t * CLAUDE_ALERT_HZ) % 1.0 < 0.55
+    out[LEDS.index("Escape")] = CLAUDE_ALERT if on else scale_color(CLAUDE_ALERT, 12)
+    return out
+
+
 def apply_key_overrides(colors, overrides):
     if not overrides:
         return colors

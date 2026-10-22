@@ -48,6 +48,7 @@ class Daemon:
         self.rgb_error = None
         self.claude_focused = False
         self.claude_focus_checked = 0.0
+        self.claude_cache = None
         self.oled_hash = None
         self.wheel_devs = []
         self.key_devs = []
@@ -389,6 +390,9 @@ class Daemon:
                 profile=self.cfg["rgb"].get("profile"),
             )
             colors = rgbmod.apply_key_overrides(colors, self.cfg["rgb"].get("keys"))
+            if self.cfg["rgb"].get("claude_esc", True):
+                waiting = self._claude_summary()["state"] == "waiting"
+                colors = rgbmod.apply_claude_alert(colors, waiting, time.monotonic() - self.t0)
             self.openrgb.set_colors(colors)
         except (OSError, RuntimeError) as exc:
             print(f"apexctl: rgb update failed: {exc}", file=sys.stderr)
@@ -404,12 +408,19 @@ class Daemon:
             self.claude_focus_checked = now
         return self.claude_focused
 
+    def _claude_summary(self):
+        # Shared by the OLED and the 24 fps RGB loop; the state files change far slower.
+        now = time.monotonic()
+        if self.claude_cache is None or now - self.claude_cache[0] >= 0.25:
+            self.claude_cache = (now, claude.summary())
+        return self.claude_cache[1]
+
     def _effective_page(self):
         """The saved page, or the Claude page while a session is busy or focused."""
         page = self.cfg["oled"]["page"]
         if page == "claude" or not self.cfg["oled"].get("claude_auto", True):
             return page, None
-        summary = claude.summary()
+        summary = self._claude_summary()
         if summary["state"] in claude.ACTIVE or (summary["count"] and self._claude_focused()):
             return "claude", summary
         return page, None
