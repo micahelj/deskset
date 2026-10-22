@@ -7,15 +7,21 @@ It renders the Apex status in the Omarchy bar and shells out to `bin/apexctl`
 Ownership map:
 
 - `bin/apex/` — Python package: `daemon.py` (long-running control daemon),
-  `cli.py` (`apexctl` command surface), `rgb.py` (OpenRGB SDK on
-  127.0.0.1:6742), `oled.py` (USB HID interface 1), `wheel.py`, `hypr.py`
+  `cli.py` (`apexctl` command surface), `devices.py` (detects the
+  connected keyboard and picks its OLED format and RGB transport),
+  `rgb.py` (effects, OpenRGB SDK on 127.0.0.1:6742, backend selection),
+  `hidrgb.py` (direct per-key HID RGB for the Apex Pro TKL Gen 3),
+  `oled.py` (USB HID interface 1), `wheel.py`, `hypr.py`
   (Hyprland integration), `mpris.py` (media titles for the OLED),
   `config.py`, `layout.py`, `render.py` (OLED frame rendering).
 - `hooks/` — post-boot and theme-set hooks so lighting follows
   `omarchy theme set`.
 - `systemd/apexctl.service` — user service for the daemon.
-- `udev/99-steelseries-apex.rules` — hidraw permissions for the OLED.
-- `install/`, `uninstall/` — first-load install and clean removal.
+- `udev/99-steelseries-apex.rules` — hidraw permissions for the Apex 7 OLED.
+- `udev/70-steelseries-apex-pro-tkl-gen3.rules` — Gen 3 control interface
+  and wheel only; keystroke interfaces stay root-only.
+- `install/`, `uninstall/` — opt-in install (the panel's Set up button) and
+  clean removal.
 
 State: device state lives in the `apexctl` daemon, not in QML. The panel is
 stateless across reloads and re-reads state on demand. Destroying the widget

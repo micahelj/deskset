@@ -1,6 +1,19 @@
 {
-  "omarchyVersion": null,
-  "portableChecks": null,
-  "liveChecks": [],
-  "notes": "No acceptance evidence recorded yet. Run ./tests/run, omarchy plugin validate ., and the live checks in docs/DEVELOPMENT.md, then fill this in."
+  "omarchyVersion": "4.0.6-1",
+  "portableChecks": "./tests/run passed (4 structure checks, 9 Python tests) and omarchy plugin validate . passed on 2026-10-22.",
+  "liveChecks": [
+    {
+      "date": "2026-10-22",
+      "device": "SteelSeries Apex Pro TKL Gen 3 (1038:1642), firmware 1.19.7",
+      "hyprland": "0.56.2 (Lua config)",
+      "results": {
+        "oled": "Clock, workspace, now-playing and text pages render correctly and update; 10px text legible.",
+        "rgb": "Theme and wave modes show accurate colors on every key over direct HID; per-key writes leave unlisted keys untouched.",
+        "wheel": "OLED-page mode scrolls both directions and click advances; workspace mode switches workspaces after the Lua dispatcher fix; volume default unaffected.",
+        "setup": "Widget no longer installs on load; Set up button installs the service, which starts at login.",
+        "reactive": "Not available on Gen 3 by design: the udev rule keeps keystroke interfaces root-only."
+      }
+    }
+  ],
+  "notes": "Apex 7 / Apex 7 TKL paths are unchanged in this release but were not re-tested on hardware."
 }

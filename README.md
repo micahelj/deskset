@@ -1,7 +1,19 @@
 <h1 align="center">Apex Keyboard</h1>
 
-<p align="center">Omarchy shell plugin for the SteelSeries Apex 7 / Apex 7 TKL:
+<p align="center">Omarchy shell plugin for SteelSeries Apex keyboards:
 per-key RGB, the 128×40 OLED, and the OLED scroll wheel.</p>
+
+## Supported keyboards
+
+| Keyboard | USB ID | OLED | RGB | Wheel |
+|---|---|---|---|---|
+| Apex 7 TKL | `1038:1618` | yes | via OpenRGB | yes |
+| Apex 7 | `1038:1612` | yes | via OpenRGB | yes |
+| Apex Pro TKL Gen 3 | `1038:1642` | yes | direct HID (no OpenRGB) | yes |
+
+The connected keyboard is detected automatically. On the Apex Pro TKL Gen 3
+the `reactive` lighting mode is hidden, because it needs read access to the
+keystroke interfaces, which the Gen 3 udev rule deliberately withholds.
 
 ## Install
 
@@ -9,8 +21,9 @@ per-key RGB, the 128×40 OLED, and the OLED scroll wheel.</p>
 omarchy plugin add https://github.com/davidzu/sonic.apex.git --enable
 ```
 
-That clones the plugin, validates it, and enables the bar widget. On first
-load the panel:
+That clones the plugin, validates it, and enables the bar widget. Nothing
+else is installed until you open the widget and click **Set up background
+service**, which:
 
 - puts `apexctl` on `PATH` (`~/.local/bin`)
 - enables the `apexctl` user systemd service
@@ -19,10 +32,11 @@ load the panel:
 ### Requirements
 
 - Omarchy (Hyprland + Quickshell)
-- Python 3 with Pillow (`python-pillow`, already on Omarchy)
-- [OpenRGB](https://openrgb.org/) for RGB (`omarchy pkg add openrgb`), with its SDK server on `127.0.0.1:6742`
+- Python 3 with Pillow (`omarchy pkg add python-pillow` if it is missing)
+- Apex 7 / Apex 7 TKL only: [OpenRGB](https://openrgb.org/) for RGB
+  (`omarchy pkg add openrgb`), with its SDK server on `127.0.0.1:6742`
 
-Start OpenRGB once:
+Start OpenRGB once (Apex 7 / Apex 7 TKL):
 
 ```bash
 systemctl --user enable --now openrgb.service
@@ -49,11 +63,15 @@ systemctl --user enable --now openrgb.service
 
 ### HID permissions
 
-The OLED talks to USB HID interface 1. If `apexctl oled clock` says the
-hidraw is missing or not writable:
+The OLED (and Gen 3 RGB) talk to USB HID interface 1. Install the udev rule
+for your keyboard if `apexctl status` shows the OLED as missing:
 
 ```bash
-sudo cp ~/.config/omarchy/plugins/sonic.apex/udev/99-steelseries-apex.rules /etc/udev/rules.d/
+# Apex 7 / Apex 7 TKL
+sudo cp ~/.config/omarchy/plugins/io.github.davidzu.sonic_apex/udev/99-steelseries-apex.rules /etc/udev/rules.d/
+# Apex Pro TKL Gen 3 (control interface and wheel only, not keystrokes)
+sudo cp ~/.config/omarchy/plugins/io.github.davidzu.sonic_apex/udev/70-steelseries-apex-pro-tkl-gen3.rules /etc/udev/rules.d/
+
 sudo udevadm control --reload && sudo udevadm trigger
 ```
 
@@ -62,15 +80,28 @@ Unplug/replug the keyboard if it still cannot open the device.
 ## Use it
 
 Click the **Apex Keyboard** widget in the bar (right section) to open the
-panel: RGB effects, OLED pages (clock, media, system), and wheel modes.
+panel: RGB effects, OLED pages (clock, media, workspace, logo), and wheel
+modes.
 
 CLI examples:
 
 ```bash
-apexctl rgb wave --speed 2
+apexctl status
+apexctl rgb wave --speed 60
 apexctl oled clock
-apexctl wheel mode media
+apexctl wheel workspace
 ```
+
+## Remove
+
+```bash
+~/.config/omarchy/plugins/io.github.davidzu.sonic_apex/uninstall
+omarchy plugin remove io.github.davidzu.sonic_apex
+```
+
+`uninstall` stops the service and removes the `apexctl` link and hooks; your
+settings in `~/.config/omarchy/apex.json` are kept. Remove any udev rule you
+copied into `/etc/udev/rules.d/` by hand.
 
 ## Development
 
@@ -89,8 +120,12 @@ actual tests in [docs/ACCEPTANCE.json](docs/ACCEPTANCE.json).
 
 ## Credits
 
-Built from [omarchy-plugin-template](https://github.com/tcballard/omarchy-plugin-template)
-guidance and the Omarchy template set. See [CREDITS.md](CREDITS.md).
+Apex Keyboard is by [David Zúñiga](https://github.com/davidzu), built from
+[omarchy-plugin-template](https://github.com/tcballard/omarchy-plugin-template)
+guidance and the Omarchy template set. The Apex Pro TKL Gen 3 OLED and RGB
+protocol comes from
+[apex-pro-tkl-gen3-linux](https://github.com/SilasDaSilva/apex-pro-tkl-gen3-linux)
+by [@SilasDaSilva](https://github.com/SilasDaSilva) (MIT). See [CREDITS.md](CREDITS.md).
 
 ## Licence
 
