@@ -26,7 +26,7 @@ DEFAULT = {
         # Number row 1-0 shows Hyprland workspaces 1-10 by colour: theme colour
         # names or "#RRGGBB" for active / visible / occupied / empty.
         "workspace_keys": True,
-        "workspace_colors": {"active": "accent", "visible": "magenta", "occupied": "green", "empty": "foreground"},
+        "workspace_colors": {"active": "#FFFFFF", "visible": "#FF00C8", "occupied": "#00FF40", "empty": "#0030FF"},
         "speed": 45,
         "keys": {},
     },

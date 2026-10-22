@@ -43,11 +43,17 @@ class Colours(unittest.TestCase):
 
     def test_every_key_lit_and_coloured_by_state(self):
         out = rgb.apply_workspace_keys(self.base, {1: "active", 2: "visible", 10: "occupied"}, self.PALETTE)
-        self.assertEqual(out[self.idx["1"]], (10, 20, 250))    # active: accent
-        self.assertEqual(out[self.idx["2"]], (200, 0, 200))    # visible: magenta
-        self.assertEqual(out[self.idx["0"]], (0, 200, 0))      # workspace 10 occupied: green
-        self.assertEqual(out[self.idx["5"]], (180, 180, 190))  # empty: foreground, still lit
+        self.assertEqual(out[self.idx["1"]], (255, 255, 255))  # active: white
+        self.assertEqual(out[self.idx["2"]], (255, 0, 200))    # visible: magenta
+        self.assertEqual(out[self.idx["0"]], (0, 255, 64))     # workspace 10 occupied: green
+        self.assertEqual(out[self.idx["5"]], (0, 48, 255))     # empty: deep blue, still lit
         self.assertEqual(out[self.idx["Q"]], (9, 9, 9))        # other keys untouched
+
+    def test_theme_names_still_work(self):
+        out = rgb.apply_workspace_keys(self.base, {1: "active"}, self.PALETTE,
+                                       scheme={"active": "accent", "empty": "foreground"})
+        self.assertEqual(out[self.idx["1"]], (10, 20, 250))
+        self.assertEqual(out[self.idx["5"]], (180, 180, 190))
 
     def test_custom_scheme_accepts_hex_and_theme_names(self):
         out = rgb.apply_workspace_keys(self.base, {3: "active"}, self.PALETTE,
@@ -60,7 +66,8 @@ class Colours(unittest.TestCase):
         self.assertEqual(out[self.idx["7"]], (180, 180, 190))
 
     def test_respects_brightness(self):
-        out = rgb.apply_workspace_keys(self.base, {3: "active"}, {"accent": (200, 200, 200)}, brightness=50)
+        out = rgb.apply_workspace_keys(self.base, {3: "active"}, {}, brightness=50,
+                                       scheme={"active": "#C8C8C8"})
         self.assertEqual(out[self.idx["3"]], (100, 100, 100))
 
     def test_theme_palette_exposes_named_colours(self):

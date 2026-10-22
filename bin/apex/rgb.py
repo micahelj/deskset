@@ -148,10 +148,12 @@ def apply_claude_alert(colors, waiting, t, color=CLAUDE_ALERT):
     return out
 
 
-# Theme colour names (or "#RRGGBB") per workspace state. Every key stays lit at
-# the same brightness; only the hue changes. Orange/yellow are avoided because
-# Escape, beside the 1 key, flashes orange for Claude.
-WORKSPACE_COLORS = {"active": "accent", "visible": "magenta", "occupied": "green", "empty": "foreground"}
+# "#RRGGBB" or a theme colour name per workspace state. Every key stays lit at
+# the same brightness; only the hue changes. Saturated colours on purpose:
+# LEDs wash theme pastels toward white (accent blue vs foreground looked the
+# same on hardware). Orange/yellow are avoided because Escape, beside the 1
+# key, flashes orange for Claude.
+WORKSPACE_COLORS = {"active": "#FFFFFF", "visible": "#FF00C8", "occupied": "#00FF40", "empty": "#0030FF"}
 
 
 def apply_workspace_keys(colors, ws_levels, palette, brightness=100, scheme=None):
