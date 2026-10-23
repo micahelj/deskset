@@ -452,6 +452,11 @@ def cmd_cheatsheet(args):
         print("cheat sheet closed")
 
 
+def cmd_modkey(args):
+    # Run by Hyprland on every modifier press/release: stay quiet and quick.
+    _talk({"cmd": "modkey", "mod": args.mod, "down": args.state == "down"}, timeout=0.5)
+
+
 def cmd_claude_hook(_args):
     # Claude Code hook entry point: event JSON on stdin, never fails or prints.
     from . import claude
@@ -531,6 +536,10 @@ def build_parser():
     cs = sub.add_parser("cheatsheet", help="light the keys bound under each modifier set")
     cs.add_argument("action", nargs="?", default="toggle", choices=("toggle", "open", "close"))
     cs.set_defaults(func=cmd_cheatsheet)
+    mk = sub.add_parser("modkey", help="a modifier went down or up (run by the [apex-super] Hyprland binds)")
+    mk.add_argument("mod", choices=("super", "shift", "ctrl", "alt"))
+    mk.add_argument("state", choices=("down", "up"))
+    mk.set_defaults(func=cmd_modkey)
     ch = sub.add_parser("claude-hook", help="record Claude Code activity (run by a Claude Code hook)")
     ch.set_defaults(func=cmd_claude_hook)
     return p

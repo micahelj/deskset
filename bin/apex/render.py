@@ -304,7 +304,11 @@ def cheatsheet_page(state):
     pw = _text_width(draw, position, FONT_SM)
     _blit_text(draw, (OLED_WIDTH - pw - 1, 3), position, FONT_SM)
     _blit_text(draw, (1, 1), _fit(draw, state.get("label", ""), FONT_MD, OLED_WIDTH - pw - 6), FONT_MD)
-    if state.get("key"):
+    if state.get("legend"):
+        # Held-Super peek: what the colours mean.
+        _blit_text(draw, (1, 15), "grn wksp  yel window", FONT_SM)
+        _blit_text(draw, (1, 27), "mag system  cyn apps", FONT_SM)
+    elif state.get("key"):
         _blit_text(draw, (1, 15), _fit(draw, state["key"], FONT_SM, OLED_WIDTH - 2), FONT_SM)
         _blit_text(draw, (1, 27), _fit(draw, state.get("description", ""), FONT_SM, OLED_WIDTH - 2), FONT_SM)
     else:

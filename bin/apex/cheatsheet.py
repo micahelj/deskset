@@ -7,6 +7,9 @@ While open, every bound key lights in its category colour, unbound keys go
 dark, the held modifiers glow white, the wheel steps through the bindings
 (the selected key pulses and the OLED names it) and a wheel click moves to
 the next modifier set. It closes by itself after a quiet spell.
+
+Holding Super shows the same colours for the modifiers held right now (Peek),
+fed by non-consuming Hyprland press/release binds on the modifier keys.
 """
 
 from __future__ import annotations
@@ -19,6 +22,9 @@ import time
 from .layout import LEDS, XY
 
 IDLE_CLOSE = 30.0
+PEEK_DELAY = 0.25     # a quick Super shortcut finishes before the overlay shows
+PEEK_MAX = 60.0       # a missed release can't leave the overlay up for good
+PEEK_RELOAD = 60.0    # re-read the bindings at most this often
 LIST_COMMAND = ["omarchy", "menu", "keybindings", "--print"]
 
 MODIFIER_LED = {"SUPER": "Left Windows", "SHIFT": "Left Shift", "CTRL": "Left Control", "ALT": "Left Alt"}
@@ -103,6 +109,20 @@ def groups(bindings):
     return [(mods, sorted(by_mods[mods], key=position)) for mods in order]
 
 
+def paint(mods, entries, brightness=100):
+    """Full LED list: bound keys by category, held modifiers white, the rest dark."""
+    scale = brightness / 100.0
+    out = [(0, 0, 0)] * len(LEDS)
+    index = {name: i for i, name in enumerate(LEDS)}
+    for led, desc in entries:
+        out[index[led]] = tuple(int(c * scale) for c in CATEGORY_COLORS[category(desc)])
+    for mod in mods:
+        led = MODIFIER_LED[mod]
+        if led in index:
+            out[index[led]] = tuple(int(c * scale) for c in MODIFIER_COLOR)
+    return out
+
+
 def load(command=LIST_COMMAND, absent=None):
     if absent is None:
         from . import devices
@@ -167,21 +187,13 @@ class CheatSheet:
         return entries[self.cursor]
 
     def colors(self, t, brightness=100):
-        """Full LED list: bound keys by category, held modifiers white, the rest dark."""
+        """Full LED list for the open set, with the selected key pulsing white."""
         mods, entries = self.current()
-        scale = brightness / 100.0
-        out = [(0, 0, 0)] * len(LEDS)
-        index = {name: i for i, name in enumerate(LEDS)}
-        for led, desc in entries:
-            out[index[led]] = tuple(int(c * scale) for c in CATEGORY_COLORS[category(desc)])
-        for mod in mods:
-            led = MODIFIER_LED[mod]
-            if led in index:
-                out[index[led]] = tuple(int(c * scale) for c in MODIFIER_COLOR)
+        out = paint(mods, entries, brightness)
         picked = self.selected()
         if picked:
             pulse = 0.55 + 0.45 * math.sin(t * 2 * math.pi * 2.0)  # 2 Hz breathing on the selection
-            out[index[picked[0]]] = tuple(int(255 * pulse) for _ in range(3))
+            out[LEDS.index(picked[0])] = tuple(int(255 * pulse) for _ in range(3))
         return out
 
     def oled_state(self):
@@ -194,3 +206,53 @@ class CheatSheet:
             "key": picked[0] if picked else "",
             "description": picked[1] if picked else "",
         }
+
+
+class Peek:
+    """The bindings of the modifiers held right now, shown while Super is held."""
+
+    def __init__(self, loader=load, delay=PEEK_DELAY):
+        self.loader = loader
+        self.delay = delay
+        self.held = set()
+        self.since = None  # when Super went down
+        self.sets = {}
+        self.loaded = None
+
+    def key(self, mod, down, now=None):
+        """A modifier went down or up. Releasing Super ends the peek."""
+        now = now or time.monotonic()
+        if mod == "SUPER":
+            if not down:
+                self.held.clear()
+                self.since = None
+                return
+            if self.since is None:
+                self.since = now
+                if self.loaded is None or now - self.loaded > PEEK_RELOAD:
+                    self.sets = dict(self.loader())
+                    self.loaded = now
+            self.held.add(mod)
+        elif mod in MODIFIER_LED:
+            (self.held.add if down else self.held.discard)(mod)
+
+    def visible(self, now=None):
+        if self.since is None:
+            return False
+        held_for = (now or time.monotonic()) - self.since
+        if held_for >= PEEK_MAX:
+            self.key("SUPER", False)
+            return False
+        return held_for >= self.delay
+
+    def mods(self):
+        return tuple(m for m in MOD_ORDER if m in self.held)
+
+    def entries(self):
+        return self.sets.get(self.mods(), [])
+
+    def colors(self, brightness=100):
+        return paint(self.mods(), self.entries(), brightness)
+
+    def oled_state(self):
+        return {"label": group_label(self.mods()), "position": f"{len(self.entries())} keys", "legend": True}

@@ -29,6 +29,10 @@ DEFAULT = {
         # Keyboard lights and OLED go dark while the idle screensaver is up or
         # the lock screen has blanked the displays.
         "away_dark": True,
+        # Holding Super lights the keys bound under the held modifiers (needs
+        # the [apex-super] binds in bindings.lua); delay in seconds.
+        "super_peek": True,
+        "super_peek_delay": 0.25,
         "workspace_colors": {"active": "#FFFFFF", "visible": "#FF00C8", "occupied": "#00FF40", "empty": "#0030FF"},
         "speed": 45,
         "keys": {},

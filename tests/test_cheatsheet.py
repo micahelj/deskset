@@ -114,5 +114,75 @@ class Browsing(unittest.TestCase):
             s.step(1)
 
 
+class HeldSuper(unittest.TestCase):
+    def peek(self):
+        self.loads = 0
+
+        def loader():
+            self.loads += 1
+            return cs.groups(cs.parse(SAMPLE))
+        return cs.Peek(loader=loader)
+
+    def test_shows_only_after_the_delay(self):
+        p = self.peek()
+        p.key("SUPER", True, now=100.0)
+        self.assertFalse(p.visible(now=100.1))
+        self.assertTrue(p.visible(now=100.0 + cs.PEEK_DELAY))
+        p.key("SUPER", False)
+        self.assertFalse(p.visible(now=101.0))
+
+    def test_held_modifiers_pick_the_set(self):
+        p = self.peek()
+        p.key("SUPER", True)
+        colors = p.colors()
+        self.assertEqual(colors[IDX["W"]], cs.CATEGORY_COLORS["window"])
+        self.assertEqual(colors[IDX["Left Windows"]], cs.MODIFIER_COLOR)
+        p.key("SHIFT", True)
+        colors = p.colors()
+        self.assertEqual(colors[IDX["W"]], (0, 0, 0))
+        self.assertEqual(colors[IDX["1"]], cs.CATEGORY_COLORS["workspace"])
+        self.assertEqual(colors[IDX["Left Shift"]], cs.MODIFIER_COLOR)
+        p.key("SHIFT", False)
+        self.assertEqual(p.mods(), ("SUPER",))
+
+    def test_releasing_super_forgets_the_other_modifiers(self):
+        p = self.peek()
+        p.key("SUPER", True)
+        p.key("SHIFT", True)
+        p.key("SUPER", False)
+        p.key("SUPER", True)
+        self.assertEqual(p.mods(), ("SUPER",))
+
+    def test_other_modifiers_alone_do_nothing(self):
+        p = self.peek()
+        p.key("SHIFT", True, now=100.0)
+        self.assertFalse(p.visible(now=105.0))
+
+    def test_a_missed_release_times_out(self):
+        p = self.peek()
+        p.key("SUPER", True, now=100.0)
+        self.assertFalse(p.visible(now=100.0 + cs.PEEK_MAX))
+        self.assertEqual(p.mods(), ())
+
+    def test_bindings_are_cached_between_presses(self):
+        p = self.peek()
+        p.key("SUPER", True, now=100.0)
+        p.key("SUPER", True, now=100.5)  # key repeat
+        p.key("SUPER", False)
+        p.key("SUPER", True, now=110.0)
+        self.assertEqual(self.loads, 1)
+        p.key("SUPER", False)
+        p.key("SUPER", True, now=100.0 + cs.PEEK_RELOAD + 1)
+        self.assertEqual(self.loads, 2)
+
+    def test_page_shows_the_legend(self):
+        p = self.peek()
+        p.key("SUPER", True)
+        state = p.oled_state()
+        self.assertEqual((state["label"], state["position"]), ("Super", "5 keys"))
+        im = render.render("cheatsheet", {"cheatsheet": state})
+        self.assertTrue(any(im.getdata()))
+
+
 if __name__ == "__main__":
     unittest.main()

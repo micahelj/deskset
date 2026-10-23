@@ -65,6 +65,8 @@ class Daemon:
         self.claude_cache = None
         self.workspaces = None
         self.cheat = cheatsheet.CheatSheet()
+        self.peek = cheatsheet.Peek()
+        self.peek_shown = False
         self.sysmon = sysmon.Monitor()
         self.gpu = gpumod.GpuMonitor()
         self.last_sample = 0.0
@@ -181,6 +183,10 @@ class Daemon:
             if now - self.last_sample >= 1.0:
                 self.sysmon.sample()
                 self.last_sample = now
+            peek = self._peeking()
+            if peek != self.peek_shown:
+                self.peek_shown = peek
+                self._push_oled(force=True)
             if self.cheat.expired(now):
                 self.cheat.close()
                 self._apply_wheel_grab()
@@ -305,6 +311,9 @@ class Daemon:
             self._push_oled(force=True)
             self._push_rgb(force=True)
             return {"ok": True, "cheatsheet": opened, **(self.cheat.oled_state() if opened else {})}
+        if cmd == "modkey":
+            self.peek.key(str(req.get("mod", "")).upper(), bool(req.get("down")))
+            return {"ok": True}
         if cmd == "stop":
             self.running = False
             return {"ok": True}
@@ -522,6 +531,8 @@ class Daemon:
             if self.cheat.active:
                 # The cheat sheet owns the whole board while it is open.
                 colors = self.cheat.colors(time.monotonic() - self.t0, self.cfg["rgb"]["brightness"])
+            elif self._peeking():
+                colors = self.peek.colors(self.cfg["rgb"]["brightness"])
             else:
                 colors = rgbmod.effect_colors(
                     mode,
@@ -561,6 +572,14 @@ class Daemon:
                 cfgmod.save(self.cfg)
         waiting = self._claude_summary()["state"] == "waiting"
         self.mouse.want(mousemod.wanted(self.cfg, self.palette, self._away(), waiting), mcfg.get("dpi"))
+
+    def _peeking(self):
+        """Super held long enough to show its bindings (the cheat sheet wins)."""
+        rgb = self.cfg["rgb"]
+        if not rgb.get("super_peek", True) or self.cheat.active:
+            return False
+        self.peek.delay = float(rgb.get("super_peek_delay", cheatsheet.PEEK_DELAY))
+        return self.peek.visible()
 
     def _claude_focused(self):
         # Polling hyprctl and /proc at frame rate is wasteful; once a second is plenty.
@@ -606,6 +625,8 @@ class Daemon:
             return "clear", {"t": time.monotonic() - self.t0}
         if self.cheat.active:
             return "cheatsheet", {"cheatsheet": self.cheat.oled_state(), "t": time.monotonic() - self.t0}
+        if self._peeking():
+            return "cheatsheet", {"cheatsheet": self.peek.oled_state(), "t": time.monotonic() - self.t0}
         toast = self.toast_state
         if toast and time.monotonic() < toast[0]:
             return "toast", {"title": toast[1], "subtitle": toast[2]}

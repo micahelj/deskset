@@ -280,6 +280,40 @@ always reflects your current config. Mouse and media-key bindings have no
 key to light and are skipped, as are keys your keyboard lacks (the Apex Pro
 TKL Gen 3 has no Print Screen, Scroll Lock or Pause).
 
+### Hold Super to see your shortcuts
+
+Hold **Super** for a moment and the keyboard shows the keys bound under the
+modifiers you're holding, in the cheat sheet's colours. Add Shift, Ctrl or
+Alt to see that layer instead. The OLED names the layer and lists the colours.
+Let go and your lighting comes back. A quick Super shortcut finishes before
+the overlay appears (`rgb.super_peek_delay`, 0.25 s by default); turn it off
+with `"super_peek": false` under `rgb` in `~/.config/omarchy/apex.json`.
+
+The daemon can't read your keystrokes (the keyboard's typing interfaces stay
+root-only), so Hyprland tells it when a modifier goes down or up. Add this to
+`~/.config/hypr/bindings.lua` (use your own path to `apexctl`):
+
+```lua
+do
+  local apexctl = "/home/YOU/.local/bin/apexctl"
+  local mods = { [133] = "super", [134] = "super", [50] = "shift", [62] = "shift",
+                 [37] = "ctrl", [105] = "ctrl", [64] = "alt", [108] = "alt" }
+  local down = {}
+  hl.on("input.keyboard.key", function(keycode, _time, pressed)
+    local mod = mods[keycode]
+    local is_down = pressed == 1
+    if mod and down[keycode] ~= is_down then
+      down[keycode] = is_down
+      hl.exec_cmd(apexctl .. " modkey " .. mod .. (is_down and " down" or " up"))
+    end
+  end)
+end
+```
+
+It uses key events rather than release binds because Hyprland skips a
+release bind when another key was pressed in between, which would leave the
+overlay up after every Super shortcut.
+
 ## Claude Code activity
 
 The **claude** OLED page shows what [Claude Code](https://claude.com/claude-code)
