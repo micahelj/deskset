@@ -260,6 +260,7 @@ class Daemon:
             "rgb": dict(self.cfg["rgb"]),
             "oled": dict(self.cfg["oled"]),
             "wheel": dict(self.cfg["wheel"]),
+            "favorites": dict(self.cfg["favorites"]),
             "openrgb": bool(self.openrgb),
             "oled_hid": oled.find_oled_hidraw(),
             "rgb_preview": preview[0],
@@ -279,6 +280,13 @@ class Daemon:
             return self._cmd_wheel(req)
         if cmd == "mouse":
             return self._cmd_mouse(req)
+        if cmd == "favorites":
+            try:
+                cfgmod.set_favorites(self.cfg, req)
+            except (ValueError, TypeError) as exc:
+                return {**self.status(), "ok": False, "error": str(exc)}
+            cfgmod.save(self.cfg)
+            return self.status()
         if cmd == "reload":
             self.cfg = cfgmod.load()
             self.palette = rgbmod.load_palette()

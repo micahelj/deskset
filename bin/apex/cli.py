@@ -76,6 +76,7 @@ def cmd_status(args):
             "rgb": cfg["rgb"],
             "oled": cfg["oled"],
             "wheel": cfg["wheel"],
+            "favorites": cfg["favorites"],
             "openrgb": profile.rgb == "hid" and bool(oled.find_oled_hidraw()),
             "oled_hid": oled.find_oled_hidraw(),
             "daemon": False,
@@ -363,6 +364,40 @@ def cmd_mouse(args):
         print(f"mouse {mouse.get('mode')}  ({mouse.get('name') or mouse.get('error') or 'not found'})")
 
 
+def cmd_favorites(args):
+    req = {"cmd": "favorites"}
+    for key in ("sections", "colors", "oled", "wheel"):
+        value = getattr(args, key)
+        if value is not None:
+            req[key] = [v.strip() for v in value.split(",") if v.strip()]
+    if args.dpi is not None:
+        try:
+            req["dpi"] = [int(v) for v in args.dpi.split(",") if v.strip()]
+        except ValueError:
+            raise SystemExit("--dpi takes numbers, e.g. 800,1600,3200")
+    if args.reset:
+        req["reset"] = True
+    data = _talk(req)
+    if data is None:
+        cfg = cfgmod.load()
+        try:
+            cfgmod.set_favorites(cfg, req)
+        except ValueError as exc:
+            raise SystemExit(f"apexctl: {exc}")
+        cfgmod.save(cfg)
+        fav = cfg["favorites"]
+    elif data.get("ok") is False:
+        raise SystemExit(f"apexctl: {data.get('error')}")
+    else:
+        fav = data.get("favorites", {})
+    if args.json:
+        json.dump(fav, sys.stdout, indent=2)
+        sys.stdout.write("\n")
+        return
+    for key in ("sections", "colors", "dpi", "oled", "wheel"):
+        print(f"{key:9s} {', '.join(map(str, fav.get(key, [])))}")
+
+
 def cmd_keys(_args):
     for name in LEDS:
         print(name)
@@ -444,6 +479,16 @@ def build_parser():
     ms.add_argument("--info", action="store_true", help="show the detected mouse, its zones and effects")
     ms.add_argument("--json", action="store_true")
     ms.set_defaults(func=cmd_mouse)
+
+    fv = sub.add_parser("favorites", help="choose what the panel's Favorites tab shows")
+    fv.add_argument("--sections", help="comma list of: " + ", ".join(cfgmod.FAVORITE_SECTIONS))
+    fv.add_argument("--colors", help="comma list of #RRGGBB, theme, rainbow")
+    fv.add_argument("--dpi", help="comma list of DPI values")
+    fv.add_argument("--oled", help="comma list of OLED pages")
+    fv.add_argument("--wheel", help="comma list of wheel modes")
+    fv.add_argument("--reset", action="store_true", help="back to the defaults")
+    fv.add_argument("--json", action="store_true")
+    fv.set_defaults(func=cmd_favorites)
 
     ky = sub.add_parser("keys", help="list LED names for per-key overrides")
     ky.set_defaults(func=cmd_keys)

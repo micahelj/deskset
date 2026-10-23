@@ -52,7 +52,6 @@ Panel {
     { label: "yellow", color: "#FFC800" },
     { label: "white", color: "#FFFFFF" }
   ]
-  readonly property var favoritePages: ["clock", "system", "claude", "now-playing"]
   readonly property var tabs: [
     { value: "favorites", label: "Favorites", icon: "󰓎" },
     { value: "mouse", label: "Mouse", icon: "󰍽" },
@@ -134,6 +133,99 @@ Panel {
     f.contentY = Math.max(0, Math.min(f.contentHeight - f.height, f.contentY - dy))
   }
 
+  // ── Favorites ──────────────────────────────────────────────────────
+  property bool editingFavorites: false
+  readonly property var defaultFavorites: ({
+    sections: ["brightness", "lighting", "dpi", "oled", "wheel"],
+    colors: ["theme", "#4A1C90", "#00806A", "#7DD3FC", "#00FF40", "#FF00C8", "#FF3C00", "#FFC800", "#FFFFFF", "rainbow"],
+    dpi: [400, 800, 1600, 3200, 6400],
+    oled: ["clock", "system", "claude", "now-playing"],
+    wheel: ["volume", "app", "workspace"]
+  })
+  readonly property var fav: root.status.favorites || root.defaultFavorites
+  readonly property var favoriteSections: [
+    { value: "brightness", label: "brightness" },
+    { value: "lighting", label: "lighting" },
+    { value: "dpi", label: "mouse DPI" },
+    { value: "oled", label: "OLED" },
+    { value: "wheel", label: "wheel" }
+  ]
+  readonly property var dpiChoices: [400, 800, 1000, 1200, 1600, 2400, 3200, 4800, 6400, 12800]
+
+  function favHas(key, value) {
+    var list = root.fav[key] || []
+    for (var i = 0; i < list.length; i++)
+      if (String(list[i]).toUpperCase() === String(value).toUpperCase()) return true
+    return false
+  }
+
+  // Switch a section back on (Sections, in edit mode) to edit what it offers.
+  function favShows(section) {
+    return root.favHas("sections", section)
+  }
+
+  function favSet(key, list) {
+    root.apex(["favorites", "--" + key, list.join(",")])
+  }
+
+  function favToggle(key, value) {
+    var list = (root.fav[key] || []).slice()
+    if (root.favHas(key, value))
+      list = list.filter(v => String(v).toUpperCase() !== String(value).toUpperCase())
+    else
+      list.push(value)
+    root.favSet(key, list)
+  }
+
+  function colorCandidates() {
+    var out = ["theme"].concat(root.colorPresets.map(p => p.color), ["rainbow"])
+    var extra = (root.fav.colors || []).filter(c => out.every(o => String(o).toUpperCase() !== String(c).toUpperCase()))
+    return out.concat(extra)
+  }
+
+  function dpiCandidates() {
+    var all = root.dpiChoices.concat((root.fav.dpi || []).filter(d => root.dpiChoices.indexOf(d) < 0))
+    return all.sort((a, b) => a - b)
+  }
+
+  function colorLabel(value) {
+    if (value === "theme" || value === "rainbow") return value
+    for (var i = 0; i < root.colorPresets.length; i++)
+      if (root.sameColor(root.colorPresets[i].color, value)) return root.colorPresets[i].label
+    return String(value).toLowerCase()
+  }
+
+  function colorIsCurrent(value) {
+    if (value === "theme") return root.rgb.mode === "theme"
+    if (value === "rainbow") return root.rgb.mode === "rainbow"
+    return root.rgb.mode === "solid" && root.sameColor(root.rgb.solid, value)
+  }
+
+  function applyFavoriteColor(value) {
+    if (value === "rainbow") {
+      root.apex(["rgb", "rainbow"])
+      return
+    }
+    if (value === "theme") root.apex(["rgb", "theme"])
+    else root.apex(["rgb", "-c", value])
+    if (root.mouse && root.mouse.mode !== "match") root.apex(["mouse", "match"])
+  }
+
+  function addFavoriteColor() {
+    var text = newColor.text.trim()
+    if (text.charAt(0) !== "#") text = "#" + text
+    if (!/^#[0-9a-fA-F]{6}$/.test(text)) return
+    if (!root.favHas("colors", text)) root.favSet("colors", (root.fav.colors || []).concat([text.toUpperCase()]))
+    newColor.text = ""
+  }
+
+  function addFavoriteDpi() {
+    var value = parseInt(newDpi.text, 10)
+    if (!(value >= 50 && value <= 64000)) return
+    if (!root.favHas("dpi", value)) root.favSet("dpi", (root.fav.dpi || []).concat([value]))
+    newDpi.text = ""
+  }
+
   // Installing adds a user service, hooks and a ~/.local/bin link, so it only
   // runs when asked from the panel, never on load.
   function setup() {
@@ -145,6 +237,11 @@ Panel {
     target: "deskset"
     function tab(name: string): void {
       if (root.tabs.some(t => t.value === name)) root.tab = name
+      root.open()
+    }
+    function editFavorites(): void {
+      root.tab = "favorites"
+      root.editingFavorites = true
       root.open()
     }
   }
@@ -588,94 +685,188 @@ Panel {
           width: parent.width
           spacing: Style.space(14)
 
+          Item {
+            width: parent.width
+            height: favEdit.implicitHeight
+            Caption {
+              anchors.left: parent.left
+              anchors.verticalCenter: parent.verticalCenter
+              text: root.editingFavorites ? "Tap to add or remove" : ""
+              opacity: 0.6
+            }
+            Row {
+              anchors.right: parent.right
+              spacing: Style.spacing.xs
+              Chip {
+                visible: root.editingFavorites
+                text: "Reset"
+                onClicked: root.apex(["favorites", "--reset"])
+              }
+              Chip {
+                id: favEdit
+                text: root.editingFavorites ? "Done" : "Edit"
+                iconText: root.editingFavorites ? "󰄬" : "󰏫"
+                selected: root.editingFavorites
+                onClicked: root.editingFavorites = !root.editingFavorites
+              }
+            }
+          }
+
+          // Sections on or off (edit mode only).
+          Header { visible: root.editingFavorites; text: "SECTIONS" }
+          Grid {
+            id: favSections
+            visible: root.editingFavorites
+            width: parent.width
+            columns: 3
+            spacing: Style.spacing.xs
+            Repeater {
+              model: root.favoriteSections
+              Chip {
+                required property var modelData
+                width: (favSections.width - favSections.spacing * 2) / 3
+                text: modelData.label
+                selected: root.favHas("sections", modelData.value)
+                onClicked: root.favToggle("sections", modelData.value)
+              }
+            }
+          }
+
           LabeledSlider {
+            visible: !root.editingFavorites && root.favHas("sections", "brightness")
             label: "Brightness · keyboard and mouse"
             value: Number(root.rgb.brightness || 80)
             onCommitted: function(v) { root.setBrightnessBoth(v) }
           }
 
-          Header { text: "LIGHTING" }
+          Header { visible: root.favShows("lighting"); text: "LIGHTING" }
           SwatchGrid {
             id: favSwatches
-            count: root.colorPresets.length + 2
-            Swatch {
-              width: favSwatches.cell
-              label: "theme"
-              fill: Color.accent
-              active: root.rgb.mode === "theme"
-              onClicked: { root.apex(["rgb", "theme"]); if (root.mouse && root.mouse.mode !== "match") root.apex(["mouse", "match"]) }
-            }
+            visible: root.favShows("lighting")
+            readonly property var items: root.editingFavorites ? root.colorCandidates() : root.fav.colors
+            count: items.length
             Repeater {
-              model: root.colorPresets
+              model: favSwatches.items
               Swatch {
                 required property var modelData
                 width: favSwatches.cell
-                label: modelData.label
-                fill: modelData.color
-                active: root.rgb.mode === "solid" && root.sameColor(root.rgb.solid, modelData.color)
-                onClicked: root.applyPreset(modelData.color)
+                label: root.colorLabel(modelData)
+                fill: modelData.charAt(0) === "#" ? modelData : Color.accent
+                stops: modelData === "rainbow" ? root.rainbow : null
+                active: root.editingFavorites ? root.favHas("colors", modelData) : root.colorIsCurrent(modelData)
+                opacity: root.editingFavorites && !active ? 0.45 : 1
+                onClicked: root.editingFavorites ? root.favToggle("colors", modelData) : root.applyFavoriteColor(modelData)
               }
             }
-            Swatch {
-              width: favSwatches.cell
-              label: "rainbow"
-              stops: root.rainbow
-              active: root.rgb.mode === "rainbow"
-              onClicked: root.apex(["rgb", "rainbow"])
-            }
           }
-          Note { text: "The mouse follows the keyboard while it is set to match." }
-
-          Header { visible: root.mousePresent && !!root.mouse.dpi_presets; text: "MOUSE DPI" }
           Row {
-            id: favDpi
-            visible: root.mousePresent && !!root.mouse.dpi_presets
+            visible: root.editingFavorites && root.favHas("sections", "lighting")
             width: parent.width
             spacing: Style.spacing.xs
+            TextField {
+              id: newColor
+              width: parent.width - addColor.width - parent.spacing
+              placeholderText: "Add a colour: #RRGGBB"
+              foreground: root.ink
+              font.family: root.bar.fontFamily
+              font.pixelSize: Style.font.caption
+              onAccepted: root.addFavoriteColor()
+            }
+            Chip {
+              id: addColor
+              text: "Add"
+              onClicked: root.addFavoriteColor()
+            }
+          }
+          Note {
+            visible: !root.editingFavorites && root.favHas("sections", "lighting")
+            text: "The mouse follows the keyboard while it is set to match."
+          }
+
+          Header { visible: root.favShows("dpi") && root.mousePresent; text: "MOUSE DPI" }
+          Grid {
+            id: favDpi
+            visible: root.favShows("dpi") && root.mousePresent
+            readonly property var items: root.editingFavorites ? root.dpiCandidates() : root.fav.dpi
+            width: parent.width
+            columns: Math.max(1, Math.min(5, items.length))
+            spacing: Style.spacing.xs
             Repeater {
-              model: root.mouse && root.mouse.dpi_presets || []
+              model: favDpi.items
               Chip {
                 required property var modelData
-                width: (favDpi.width - favDpi.spacing * 4) / 5
+                width: (favDpi.width - favDpi.spacing * (favDpi.columns - 1)) / favDpi.columns
                 text: String(modelData)
-                selected: root.mouse && root.mouse.dpi === modelData
-                onClicked: root.apex(["mouse", "--dpi", String(modelData)])
+                selected: root.editingFavorites ? root.favHas("dpi", modelData) : (root.mouse && root.mouse.dpi === modelData)
+                onClicked: root.editingFavorites ? root.favToggle("dpi", modelData) : root.apex(["mouse", "--dpi", String(modelData)])
               }
             }
           }
-
-          Header { text: "OLED" }
           Row {
+            visible: root.editingFavorites && root.favHas("sections", "dpi") && root.mousePresent
+            width: parent.width
+            spacing: Style.spacing.xs
+            TextField {
+              id: newDpi
+              width: parent.width - addDpi.width - parent.spacing
+              placeholderText: "Add a DPI value"
+              inputMethodHints: Qt.ImhDigitsOnly
+              validator: IntValidator { bottom: 50; top: 64000 }
+              foreground: root.ink
+              font.family: root.bar.fontFamily
+              font.pixelSize: Style.font.caption
+              onAccepted: root.addFavoriteDpi()
+            }
+            Chip {
+              id: addDpi
+              text: "Add"
+              onClicked: root.addFavoriteDpi()
+            }
+          }
+
+          Header { visible: root.favShows("oled"); text: "OLED" }
+          Grid {
             id: favOled
+            visible: root.favShows("oled")
+            readonly property var items: root.editingFavorites ? root.oledPages : root.fav.oled
             width: parent.width
+            columns: Math.max(1, Math.min(root.editingFavorites ? 3 : 4, items.length))
             spacing: Style.spacing.xs
             Repeater {
-              model: root.favoritePages
+              model: favOled.items
               Chip {
                 required property string modelData
-                width: (favOled.width - favOled.spacing * 3) / 4
+                width: (favOled.width - favOled.spacing * (favOled.columns - 1)) / favOled.columns
                 text: root.pretty(modelData)
-                selected: root.status.oled && root.status.oled.page === modelData
-                onClicked: root.apex(["oled", modelData])
+                selected: root.editingFavorites ? root.favHas("oled", modelData) : (root.status.oled && root.status.oled.page === modelData)
+                onClicked: root.editingFavorites ? root.favToggle("oled", modelData) : root.apex(["oled", modelData])
               }
             }
           }
 
-          Header { text: "WHEEL" }
-          Row {
+          Header { visible: root.favShows("wheel"); text: "WHEEL" }
+          Grid {
             id: favWheel
+            visible: root.favShows("wheel")
+            readonly property var items: root.editingFavorites ? root.wheelModes : root.fav.wheel
             width: parent.width
+            columns: Math.max(1, Math.min(3, items.length))
             spacing: Style.spacing.xs
             Repeater {
-              model: ["volume", "app", "workspace"]
+              model: favWheel.items
               Chip {
                 required property string modelData
-                width: (favWheel.width - favWheel.spacing * 2) / 3
+                width: (favWheel.width - favWheel.spacing * (favWheel.columns - 1)) / favWheel.columns
                 text: root.pretty(modelData)
-                selected: root.status.wheel && root.status.wheel.mode === modelData
-                onClicked: root.apex(["wheel", modelData])
+                selected: root.editingFavorites ? root.favHas("wheel", modelData) : (root.status.wheel && root.status.wheel.mode === modelData)
+                onClicked: root.editingFavorites ? root.favToggle("wheel", modelData) : root.apex(["wheel", modelData])
               }
             }
+          }
+
+          Note {
+            visible: !root.editingFavorites && root.fav.sections.length === 0
+            text: "Nothing here yet. Press Edit to pick what Favorites shows."
           }
         }
 

@@ -60,7 +60,18 @@ DEFAULT = {
         # mouse's own. Tracks changes made with the mouse's DPI buttons.
         "dpi": None,
     },
+    # The panel's Favorites tab: which sections it shows, in this order, and
+    # what each offers. Colours are "#RRGGBB", "theme" or "rainbow".
+    "favorites": {
+        "sections": ["brightness", "lighting", "dpi", "oled", "wheel"],
+        "colors": ["theme", "#4A1C90", "#00806A", "#7DD3FC", "#00FF40", "#FF00C8",
+                   "#FF3C00", "#FFC800", "#FFFFFF", "rainbow"],
+        "dpi": [400, 800, 1600, 3200, 6400],
+        "oled": ["clock", "system", "claude", "now-playing"],
+        "wheel": ["volume", "app", "workspace"],
+    },
 }
+FAVORITE_SECTIONS = ("brightness", "lighting", "dpi", "oled", "wheel")
 
 
 def _merge(base, overlay):
@@ -87,6 +98,41 @@ def load(path=CONFIG_PATH):
     if cfg["mouse"].get("brightness") is not None:
         cfg["mouse"]["brightness"] = int(max(0, min(100, cfg["mouse"]["brightness"])))
     return cfg
+
+
+def set_favorites(cfg, req):
+    """Apply a favorites edit ({key: list} or {"reset": True}); raises ValueError."""
+    from .layout import OLED_PAGES, WHEEL_MODES
+    fav = cfg.setdefault("favorites", deepcopy(DEFAULT["favorites"]))
+    if req.get("reset"):
+        cfg["favorites"] = deepcopy(DEFAULT["favorites"])
+        return cfg["favorites"]
+    checks = {
+        "sections": lambda v: v in FAVORITE_SECTIONS,
+        "oled": lambda v: v in OLED_PAGES,
+        "wheel": lambda v: v in WHEEL_MODES,
+        "colors": lambda v: v in ("theme", "rainbow") or (
+            isinstance(v, str) and len(v) == 7 and v[0] == "#"
+            and all(c in "0123456789abcdefABCDEF" for c in v[1:])),
+        "dpi": lambda v: isinstance(v, int) and 50 <= v <= 64000,
+    }
+    updates = {}
+    for key, ok in checks.items():
+        if key not in req:
+            continue
+        values = req[key]
+        if key == "dpi":
+            values = sorted({int(v) for v in values})
+        elif key == "colors":
+            values = [v.upper() if v.startswith("#") else v for v in values]
+        bad = [v for v in values if not ok(v)]
+        if bad:
+            raise ValueError(f"invalid favorites {key}: {', '.join(map(str, bad))}")
+        if key == "sections":
+            values = [s for s in FAVORITE_SECTIONS if s in values]  # canonical order
+        updates[key] = list(dict.fromkeys(values))
+    fav.update(updates)  # all or nothing
+    return fav
 
 
 def save(cfg, path=CONFIG_PATH):
