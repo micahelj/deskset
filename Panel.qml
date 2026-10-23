@@ -612,7 +612,7 @@ Panel {
     readonly property real boxY: Style.space(4)
     readonly property real gutter: Style.space(46)
     width: parent.width
-    height: Style.space(250)
+    height: Style.space(210)
 
     function px(u) { return md.boxX + u * md.boxW }
     function py(v) { return md.boxY + v * md.boxH }
@@ -1174,69 +1174,74 @@ Panel {
             visible: root.mousePresent && !!(root.mouse.buttons && root.mouse.buttons.length)
             buttons: root.mousePresent && root.mouse.buttons || []
           }
-          Repeater {
-            model: root.mousePresent && root.mouse.buttons || []
-            Rectangle {
-              id: buttonRow
-              required property var modelData
-              required property int index
-              readonly property bool lit: root.hotSlot === modelData.id || root.identifiedSlot === modelData.id
-              width: parent.width
-              height: Math.max(buttonName.implicitHeight, buttonAction.implicitHeight) + Style.space(6)
-              radius: Style.cornerRadius
-              color: buttonRow.lit ? Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08) : "transparent"
-              HoverHandler {
-                onHoveredChanged: root.hotSlot = hovered ? buttonRow.modelData.id : (root.hotSlot === buttonRow.modelData.id ? -1 : root.hotSlot)
-              }
+          // Rows sit closer together than sections so the tab fits a screen.
+          Column {
+            width: parent.width
+            spacing: Style.space(3)
+            Repeater {
+              model: root.mousePresent && root.mouse.buttons || []
               Rectangle {
-                id: badge
-                anchors.left: parent.left
-                anchors.leftMargin: Style.space(4)
-                anchors.verticalCenter: parent.verticalCenter
-                width: Style.space(18)
-                height: width
-                radius: width / 2
-                color: buttonRow.lit ? Color.accent : "transparent"
-                border.width: 1
-                border.color: buttonRow.lit ? Color.accent : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.6)
-                Text {
-                  anchors.centerIn: parent
-                  text: buttonRow.index + 1
-                  color: buttonRow.lit ? root.bar.background : root.ink
-                  font.family: root.bar.fontFamily
-                  font.pixelSize: Style.font.caption
-                  font.bold: true
+                id: buttonRow
+                required property var modelData
+                required property int index
+                readonly property bool lit: root.hotSlot === modelData.id || root.identifiedSlot === modelData.id
+                width: parent.width
+                height: Math.max(buttonName.implicitHeight, buttonAction.implicitHeight) + Style.space(2)
+                radius: Style.cornerRadius
+                color: buttonRow.lit ? Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08) : "transparent"
+                HoverHandler {
+                  onHoveredChanged: root.hotSlot = hovered ? buttonRow.modelData.id : (root.hotSlot === buttonRow.modelData.id ? -1 : root.hotSlot)
                 }
-              }
-              Caption {
-                id: buttonName
-                anchors.left: badge.right
-                anchors.leftMargin: Style.space(8)
-                anchors.right: buttonAction.left
-                anchors.rightMargin: Style.space(8)
-                anchors.verticalCenter: parent.verticalCenter
-                text: modelData.label
-                elide: Text.ElideRight
-                opacity: buttonRow.lit ? 1 : 0.85
-                font.bold: buttonRow.lit
-              }
-              Dropdown {
-                id: buttonAction
-                anchors.right: parent.right
-                anchors.verticalCenter: parent.verticalCenter
-                width: parent.width * 0.52
-                showLabel: false
-                value: modelData.action
-                options: root.mouse.button_actions || []
-                foreground: root.ink
-                fontFamily: root.bar.fontFamily
-                onChanged: function(value) { root.apex(["mouse", "--button", modelData.id + "=" + value]) }
+                Rectangle {
+                  id: badge
+                  anchors.left: parent.left
+                  anchors.leftMargin: Style.space(4)
+                  anchors.verticalCenter: parent.verticalCenter
+                  width: Style.space(18)
+                  height: width
+                  radius: width / 2
+                  color: buttonRow.lit ? Color.accent : "transparent"
+                  border.width: 1
+                  border.color: buttonRow.lit ? Color.accent : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.6)
+                  Text {
+                    anchors.centerIn: parent
+                    text: buttonRow.index + 1
+                    color: buttonRow.lit ? root.bar.background : root.ink
+                    font.family: root.bar.fontFamily
+                    font.pixelSize: Style.font.caption
+                    font.bold: true
+                  }
+                }
+                Caption {
+                  id: buttonName
+                  anchors.left: badge.right
+                  anchors.leftMargin: Style.space(8)
+                  anchors.right: buttonAction.left
+                  anchors.rightMargin: Style.space(8)
+                  anchors.verticalCenter: parent.verticalCenter
+                  text: modelData.label
+                  elide: Text.ElideRight
+                  opacity: buttonRow.lit ? 1 : 0.85
+                  font.bold: buttonRow.lit
+                }
+                Dropdown {
+                  id: buttonAction
+                  anchors.right: parent.right
+                  anchors.verticalCenter: parent.verticalCenter
+                  width: parent.width * 0.52
+                  showLabel: false
+                  value: modelData.action
+                  options: root.mouse.button_actions || []
+                  foreground: root.ink
+                  fontFamily: root.bar.fontFamily
+                  onChanged: function(value) { root.apex(["mouse", "--button", modelData.id + "=" + value]) }
+                }
               }
             }
           }
           Note {
             visible: root.mousePresent && !!(root.mouse.buttons && root.mouse.buttons.length)
-            text: "Hover a row to find it on the mouse, or press Identify and then the button. Saved in the mouse itself; apexctl mouse --restore-buttons puts the originals back."
+            text: "Saved in the mouse itself. apexctl mouse --restore-buttons undoes it."
           }
         }
 
