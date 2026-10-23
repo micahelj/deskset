@@ -29,6 +29,7 @@ TIMEOUT = 0.6
 
 ROOT = 0x0000
 DEVICE_NAME = 0x0005
+BATTERY_VOLTAGE = 0x1001
 ADJUSTABLE_DPI = 0x2201
 COLOR_LED_EFFECTS = 0x8070
 
@@ -177,6 +178,26 @@ class Hidpp:
         return out.rstrip(b"\0").decode("utf-8", "replace")
 
 
+# Li-ion voltage (mV) to charge (%), as Solaar approximates it for 0x1001.
+_BATTERY_CURVE = ((4186, 100), (4067, 90), (3989, 80), (3922, 70), (3859, 60), (3811, 50),
+                  (3778, 40), (3751, 30), (3717, 20), (3671, 10), (3646, 5), (3579, 2), (3500, 0))
+
+
+def battery_percent(mv):
+    if mv >= _BATTERY_CURVE[0][0]:
+        return 100
+    for (hi_mv, hi_pct), (lo_mv, lo_pct) in zip(_BATTERY_CURVE, _BATTERY_CURVE[1:]):
+        if mv >= lo_mv:
+            return round(lo_pct + (hi_pct - lo_pct) * (mv - lo_mv) / (hi_mv - lo_mv))
+    return 0
+
+
+def is_wireless(path, root="/sys/class/hidraw"):
+    """The hidraw node belongs to a mouse paired through a receiver, not a cable."""
+    parent = os.path.realpath(os.path.join(root, os.path.basename(path), "device", ".."))
+    return os.path.basename(os.path.realpath(os.path.join(parent, "driver"))) == "logitech-djreceiver"
+
+
 def parse_dpi_list(values):
     """(min, max, step) from a 0x2201 DPI list: plain values, or low, 0xE000|step, high."""
     out, step = [], None
@@ -242,6 +263,17 @@ class Mouse:
     def ping(self):
         self.dev.request(0, 0, ROOT.to_bytes(2, "big"))
 
+    def battery(self):
+        """{"percent", "charging", "full"} from 0x1001, or None without it."""
+        idx = self.dev.feature(BATTERY_VOLTAGE)
+        if not idx:
+            return None
+        reply = bytes(self.dev.request(idx, 0))
+        mv, flags = int.from_bytes(reply[0:2], "big"), reply[2]
+        external = bool(flags & 0x80)  # on the cable / charging
+        return {"percent": battery_percent(mv), "charging": external and flags & 0x07 == 0,
+                "full": external and flags & 0x07 == 1, "mv": mv}
+
     def get_dpi(self):
         if not self.dpi_feature:
             return None
@@ -275,6 +307,7 @@ class Mouse:
             "path": self.path,
             "zones": [{"index": z.index, "name": z.name, "effects": sorted(z.effects)} for z in self.zones],
             "dpi_range": list(self.dpi_range) if self.dpi_range else None,
+            "wireless": is_wireless(self.path),
         }
 
 
@@ -313,6 +346,22 @@ BREATHE_MS = 4000
 CYCLE_MS = 10000
 CLAUDE_BREATHE_MS = 1600
 DPI_PRESETS = (400, 800, 1600, 3200, 6400)
+
+
+def spec_hex(spec):
+    """A spec as the panel draws it: "#rrggbb", "cycle", "off", or None (hands off)."""
+    if spec is None:
+        return None
+    if spec[0] in ("static", "breathe"):
+        return "#%02x%02x%02x" % tuple(spec[1])
+    return spec[0]
+
+
+def previews(cfg, palette):
+    """(keyboard, mouse) colours at full brightness, for the panel's status cards."""
+    full = {**cfg, "mouse": {**cfg.get("mouse", {}), "brightness": 100}}
+    keyboard = wanted({**full, "mouse": {"mode": "match", "brightness": 100}}, palette)
+    return spec_hex(keyboard), spec_hex(wanted(full, palette))
 
 
 def wanted(cfg, palette, away=False, claude_waiting=False):
@@ -377,6 +426,7 @@ class MouseLights:
         self.dpi_applied = None
         self.dpi = None
         self.dpi_moved = False
+        self.battery = None
         self.buttons = None
         self.mouse = None
         self.info = None
@@ -397,6 +447,10 @@ class MouseLights:
         info = self.info or {}
         out = {"present": self.mouse is not None, "name": info.get("name"),
                "zones": [z["name"] for z in info.get("zones", [])], "error": self.error}
+        if self.mouse is not None:
+            out["connection"] = "wireless" if info.get("wireless") else "wired"
+            if self.battery:
+                out["battery"] = self.battery
         if self.mouse is not None and info.get("dpi_range"):
             low, high, step = info["dpi_range"]
             out.update(dpi=self.dpi, dpi_min=low, dpi_max=high, dpi_step=step,
@@ -443,6 +497,10 @@ class MouseLights:
         if dpi is not None and dpi != self.dpi_applied:
             self.dpi = self.dpi_applied = m.set_dpi(dpi)
             return
+        try:
+            self.battery = m.battery()
+        except HidppError:
+            self.battery = None
         current = m.get_dpi() if m.dpi_feature else None
         if current is None:
             m.ping()
@@ -464,6 +522,10 @@ class MouseLights:
                             self.buttons = self._profiles().buttons()
                         except (OSError, ValueError):
                             self.buttons = None  # no onboard profiles: lighting and DPI only
+                        try:
+                            self.battery = self.mouse.battery()
+                        except HidppError:
+                            self.battery = None
                     self._sync(spec, dpi)
                 except OSError as exc:
                     # Asleep, switched off, unplugged (or moved between cable and

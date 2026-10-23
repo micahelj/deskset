@@ -241,6 +241,7 @@ class Daemon:
 
     def status(self):
         profile = devices.current()
+        preview = mousemod.previews(self.cfg, self.palette)
         rgb_dev = None
         if self.openrgb:
             rgb_dev = self.openrgb.device[1]
@@ -255,7 +256,9 @@ class Daemon:
             "wheel": dict(self.cfg["wheel"]),
             "openrgb": bool(self.openrgb),
             "oled_hid": oled.find_oled_hidraw(),
-            "mouse": {**self.cfg["mouse"], **(self.mouse.status() if self.mouse else {"present": False})},
+            "rgb_preview": preview[0],
+            "mouse": {**self.cfg["mouse"], **(self.mouse.status() if self.mouse else {"present": False}),
+                      "preview": preview[1]},
         }
 
     def handle(self, req):

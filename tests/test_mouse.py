@@ -196,6 +196,14 @@ class Wanted(unittest.TestCase):
         self.assertEqual(mouse.wanted(self.cfg(mode="breathe", color="#FF0000", brightness=50), PALETTE),
                          ("breathe", (127, 0, 0), mouse.BREATHE_MS))
 
+    def test_previews(self):
+        self.assertEqual(mouse.previews(self.cfg(), PALETTE), ("#4a1c90", "#4a1c90"))
+        self.assertEqual(mouse.previews(self.cfg(mode="solid", color="green"), PALETTE), ("#4a1c90", "#00c800"))
+        self.assertEqual(mouse.previews(self.cfg(mode="device"), PALETTE)[1], None)
+        cfg = self.cfg(mode="cycle")
+        cfg["rgb"]["mode"] = "off"
+        self.assertEqual(mouse.previews(cfg, PALETTE), ("off", "cycle"))
+
     def test_away_claude_and_device(self):
         self.assertEqual(mouse.wanted(self.cfg(), PALETTE, away=True), ("off",))
         self.assertEqual(mouse.wanted(self.cfg(), PALETTE, claude_waiting=True),
@@ -232,6 +240,14 @@ class Worker(unittest.TestCase):
         self.assertTrue(lights.status()["present"])
         self.assertEqual(lights.status()["zones"], ["primary", "logo"])
         lights.stop()
+
+
+class Battery(unittest.TestCase):
+    def test_percent_curve(self):
+        self.assertEqual(mouse.battery_percent(4206), 100)
+        self.assertEqual(mouse.battery_percent(3811), 50)
+        self.assertEqual(mouse.battery_percent(3835), 55)
+        self.assertEqual(mouse.battery_percent(3400), 0)
 
 
 class Dpi(unittest.TestCase):
