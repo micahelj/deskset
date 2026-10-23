@@ -596,14 +596,14 @@ Panel {
     property var buttons: []
     // slot -> {at: [u, v] button centre in the body box, side, v: marker height}
     readonly property var spots: ({
-      10: { at: [0.44, 0.17], side: "L", v: 0.08 },
+      10: { at: [0.435, 0.19], side: "L", v: 0.08 },
       7: { at: [0.24, 0.20], side: "L", v: 0.20 },
       6: { at: [0.24, 0.31], side: "L", v: 0.32 },
       5: { at: [0.07, 0.37], side: "L", v: 0.44 },
       4: { at: [0.10, 0.47], side: "L", v: 0.56 },
       3: { at: [0.09, 0.575], side: "L", v: 0.68 },
-      2: { at: [0.50, 0.17], side: "R", v: 0.08 },
-      9: { at: [0.56, 0.17], side: "R", v: 0.20 },
+      2: { at: [0.50, 0.10], side: "R", v: 0.05 },
+      9: { at: [0.565, 0.19], side: "R", v: 0.19 },
       8: { at: [0.50, 0.36], side: "R", v: 0.36 }
     })
     readonly property real boxH: height - Style.space(8)
