@@ -1,5 +1,7 @@
 # Credits
 
+- Deskset began as a fork of [Apex Keyboard (sonic.apex)](https://github.com/davidzu/sonic.apex)
+  by [David Zúñiga](https://github.com/davidzu) (MIT); its history is kept in this repository.
 - Plugin structure and repository standards adapted from
   [omarchy-plugin-template](https://github.com/tcballard/omarchy-plugin-template)
   by Tom Ballard (MIT).

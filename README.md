@@ -2,7 +2,7 @@
 
 <p align="center">Omarchy shell plugin for SteelSeries Apex keyboards:
 per-key RGB, the 128×40 OLED, and the OLED scroll wheel; plus Logitech mouse
-lighting, DPI and buttons. Formerly Apex Keyboard.</p>
+lighting, DPI and buttons. Began as a fork of Apex Keyboard.</p>
 
 <p align="center"><img src="docs/media/claude-page.gif" alt="Animation of the OLED's Claude Code page through one prompt: Idle, Cogitating while it reads and edits files, Needs you for a Bash permission, then Done, with the 5-hour usage bar and its reset countdown along the bottom" width="536"></p>
 
@@ -25,7 +25,7 @@ keystroke interfaces, which the Gen 3 udev rule deliberately withholds.
 ## Install
 
 ```bash
-omarchy plugin add https://github.com/davidzu/sonic.apex.git --enable
+omarchy plugin add https://github.com/micahelj/deskset.git --enable
 ```
 
 That clones the plugin, validates it, and enables the bar widget. Nothing
@@ -75,9 +75,9 @@ for your keyboard if `apexctl status` shows the OLED as missing:
 
 ```bash
 # Apex 7 / Apex 7 TKL
-sudo cp ~/.config/omarchy/plugins/io.github.davidzu.sonic_apex/udev/99-steelseries-apex.rules /etc/udev/rules.d/
+sudo cp ~/.config/omarchy/plugins/io.github.micahelj.deskset/udev/99-steelseries-apex.rules /etc/udev/rules.d/
 # Apex Pro TKL Gen 3 (control interface and wheel only, not keystrokes)
-sudo cp ~/.config/omarchy/plugins/io.github.davidzu.sonic_apex/udev/70-steelseries-apex-pro-tkl-gen3.rules /etc/udev/rules.d/
+sudo cp ~/.config/omarchy/plugins/io.github.micahelj.deskset/udev/70-steelseries-apex-pro-tkl-gen3.rules /etc/udev/rules.d/
 
 sudo udevadm control --reload && sudo udevadm trigger
 ```
@@ -88,7 +88,7 @@ For [mouse lighting](#mouse-lighting) on a Logitech G502 Lightspeed (wireless
 or wired), also install its rule:
 
 ```bash
-sudo cp ~/.config/omarchy/plugins/io.github.davidzu.sonic_apex/udev/70-logitech-g502-lightspeed.rules /etc/udev/rules.d/
+sudo cp ~/.config/omarchy/plugins/io.github.micahelj.deskset/udev/70-logitech-g502-lightspeed.rules /etc/udev/rules.d/
 sudo udevadm control --reload && sudo udevadm trigger
 ```
 
@@ -403,8 +403,8 @@ startup banner.
 ## Remove
 
 ```bash
-~/.config/omarchy/plugins/io.github.davidzu.sonic_apex/uninstall
-omarchy plugin remove io.github.davidzu.sonic_apex
+~/.config/omarchy/plugins/io.github.micahelj.deskset/uninstall
+omarchy plugin remove io.github.micahelj.deskset
 ```
 
 `uninstall` stops the service and removes the `apexctl` link and hooks; your
@@ -432,7 +432,8 @@ After changing the Claude page's drawing, regenerate its README image with
 
 ## Credits
 
-Deskset is a fork of Apex Keyboard by [David Zúñiga](https://github.com/davidzu), built from
+Deskset began as a fork of [Apex Keyboard (sonic.apex)](https://github.com/davidzu/sonic.apex)
+by [David Zúñiga](https://github.com/davidzu), which was built from
 [omarchy-plugin-template](https://github.com/tcballard/omarchy-plugin-template)
 guidance and the Omarchy template set. The Apex Pro TKL Gen 3 OLED and RGB
 protocol comes from

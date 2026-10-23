@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "id": "io.github.davidzu.sonic_apex",
+  "id": "io.github.micahelj.deskset",
   "name": "Deskset",
   "version": "1.0.0",
-  "author": "davidzu",
+  "author": "micahelj",
   "license": "MIT",
   "description": "Control SteelSeries Apex keyboards (RGB, OLED, scroll wheel) and Logitech mice (lighting, DPI, buttons) from the Omarchy bar.",
   "kinds": [

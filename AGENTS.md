@@ -1,8 +1,8 @@
 # Project instructions
 
-This is Apex Keyboard (`sonic.apex`), an Omarchy shell plugin for the
-SteelSeries Apex 7 / Apex 7 TKL / Apex Pro TKL Gen 3: per-key RGB, the
-128×40 OLED, and the OLED scroll wheel. Per-device differences live in
+This is Deskset (`io.github.micahelj.deskset`), an Omarchy shell plugin for the
+SteelSeries Apex 7 / Apex 7 TKL / Apex Pro TKL Gen 3 (per-key RGB, the
+128×40 OLED, the OLED scroll wheel) and Logitech HID++ mice such as the G502. Per-device differences live in
 `bin/apex/devices.py`. Read README.md and ARCHITECTURE.md before changes.
 
 - Run `./tests/run`. On the target Omarchy machine also run

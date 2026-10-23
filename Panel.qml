@@ -7,8 +7,8 @@ import qs.Commons
 
 Panel {
   id: root
-  moduleName: "sonic.apex"
-  ipcTarget: "sonic.apex"
+  moduleName: "deskset"
+  ipcTarget: "deskset"
   manageIpc: true
 
   property var status: ({

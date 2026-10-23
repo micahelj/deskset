@@ -10,11 +10,11 @@ installed host's validator is authoritative.
 Live checks to perform before releasing:
 
 - horizontal and vertical bar layouts
-- disable/re-enable via `omarchy plugin disable|enable sonic.apex`
+- disable/re-enable via `omarchy plugin disable|enable io.github.micahelj.deskset`
 - shell reload and `omarchy-shell shell rescanPlugins`
 - monitor connect/disconnect and theme changes
 - `apexctl` daemon start/stop/restart under the user systemd service
-- removal: `omarchy plugin remove sonic.apex --yes` must not leave the
+- removal: `omarchy plugin remove io.github.micahelj.deskset --yes` must not leave the
   `apexctl` service running or orphaned hooks behind
 
 Use your current Omarchy plugin development/linking workflow or Plugin

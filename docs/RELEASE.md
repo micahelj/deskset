@@ -6,7 +6,7 @@
 3. Verify the documented install command actually works on a clean clone:
 
    ```bash
-   omarchy plugin add https://github.com/davidzu/sonic.apex.git --enable
+   omarchy plugin add https://github.com/micahelj/deskset.git --enable
    ```
 
 4. Draft outcome-focused release notes (what changed for the user, not the diff).

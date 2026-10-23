@@ -27,5 +27,5 @@ if [[ -f $bindings ]] && grep -q '\[apex-mouse\]' "$bindings"; then
   echo "Removed mouse bindings from $bindings"
 fi
 
-echo "Done. Then run: omarchy plugin remove io.github.davidzu.sonic_apex"
+echo "Done. Then run: omarchy plugin remove io.github.micahelj.deskset"
 echo "User config kept at ~/.config/omarchy/apex.json"
