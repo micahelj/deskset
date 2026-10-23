@@ -83,6 +83,14 @@ sudo udevadm control --reload && sudo udevadm trigger
 
 Unplug/replug the keyboard if it still cannot open the device.
 
+For [mouse lighting](#mouse-lighting) on a Logitech G502 Lightspeed (wireless
+or wired), also install its rule:
+
+```bash
+sudo cp ~/.config/omarchy/plugins/io.github.davidzu.sonic_apex/udev/70-logitech-g502-lightspeed.rules /etc/udev/rules.d/
+sudo udevadm control --reload && sudo udevadm trigger
+```
+
 ## Use it
 
 Click the **Apex Keyboard** widget in the bar (right section) to open the
@@ -132,6 +140,34 @@ can see it while typing your password. The screensaver is noticed instantly
 from Hyprland's window events; the lock is checked every 2 seconds, and while
 locked the displays' power state is checked every 0.4 seconds. Typing still works while dark. Turn it
 off with `"away_dark": false` under `"rgb"` in `~/.config/omarchy/apex.json`.
+
+## Mouse lighting
+
+A Logitech mouse with HID++ lighting (feature 0x8070, e.g. the G502
+Lightspeed, through its receiver or on a cable) lights up with the keyboard.
+Pick a mode in the panel's **Mouse** section or with `apexctl mouse`:
+
+| Mode | Mouse shows |
+| --- | --- |
+| `match` (default) | The keyboard's look: its solid colour, theme accent or first gradient colour at the keyboard's brightness; breathes with `breathe`; cycles hues with `wave` / `rainbow`; off with `off` |
+| `solid` / `breathe` | `mouse.color` (a theme colour name or `#RRGGBB`), steady or breathing |
+| `cycle` | Hues rotating on the mouse |
+| `off` | Dark |
+| `device` | Hands off: the mouse's own onboard lighting |
+
+It goes dark with the keyboard when you are away, and breathes the Claude
+alert colour while a Claude Code session waits for you (`mouse.claude`).
+Effects run on the mouse itself and are written only when they change, so the
+wireless link and battery are spared; writes go to RAM, so the mouse's own
+lighting returns after it powers off without the daemon.
+
+```bash
+apexctl mouse                  # same as the keyboard
+apexctl mouse solid -c "#00FF40" -b 70
+apexctl mouse breathe -c magenta
+apexctl mouse --no-claude
+apexctl mouse --info           # detected mouse, lighting zones and effect IDs
+```
 
 ## System monitor
 

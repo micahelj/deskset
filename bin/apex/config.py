@@ -46,6 +46,17 @@ DEFAULT = {
         "mode": "volume",
         "invert": False,
     },
+    # Logitech mouse lighting (HID++). "match" follows the keyboard; "solid" /
+    # "breathe" use `color` (theme colour name or "#RRGGBB"); "cycle" rotates
+    # hues on the mouse; "device" leaves the mouse's own lighting alone.
+    # brightness None = the keyboard's brightness in match mode, else 100.
+    "mouse": {
+        "mode": "match",
+        "color": "accent",
+        "brightness": None,
+        # Breathe the Claude alert colour while a session needs you.
+        "claude": True,
+    },
 }
 
 
@@ -70,6 +81,8 @@ def load(path=CONFIG_PATH):
         pass
     cfg["rgb"]["brightness"] = int(max(0, min(100, cfg["rgb"]["brightness"])))
     cfg["rgb"]["speed"] = int(max(1, min(100, cfg["rgb"]["speed"])))
+    if cfg["mouse"].get("brightness") is not None:
+        cfg["mouse"]["brightness"] = int(max(0, min(100, cfg["mouse"]["brightness"])))
     return cfg
 
 

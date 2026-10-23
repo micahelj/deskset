@@ -16,6 +16,7 @@ from . import oled
 from . import render
 from . import rgb as rgbmod
 from .layout import LEDS, OLED_PAGES, RGB_MODES, WHEEL_MODES
+from .mouse import MODES as MOUSE_MODES
 
 
 def _talk(req, timeout=2.0):
@@ -56,6 +57,9 @@ def _print_status(data, as_json=False):
         print(f"profile    {rgb.get('profile')}")
     print(f"oled page  {oled_cfg.get('page')}")
     print(f"wheel      {wheel.get('mode')}")
+    mouse = data.get("mouse")
+    if mouse:
+        print(f"mouse      {mouse.get('mode')}  ({mouse.get('name') or mouse.get('error') or 'not found'})")
 
 
 def cmd_status(args):
@@ -246,6 +250,64 @@ def cmd_wheel(args):
     print(f"wheel mode {data.get('wheel', {}).get('mode')}")
 
 
+def _local_mouse(cfg, req):
+    from . import mouse as mousemod
+    for key in ("mode", "color", "brightness", "claude"):
+        if key in req:
+            cfg["mouse"][key] = req[key]
+    spec = mousemod.wanted(cfg, rgbmod.load_palette())
+    if spec is None:
+        print("mouse left on its own lighting")
+        return
+    m = mousemod.open_mouse()
+    try:
+        mousemod.apply(m, spec)
+        print(f"applied {cfg['mouse']['mode']} to {m.name}")
+    finally:
+        m.close()
+
+
+def cmd_mouse(args):
+    from . import mouse as mousemod
+    if args.info:
+        try:
+            m = mousemod.open_mouse()
+        except OSError as exc:
+            raise SystemExit(f"apexctl: {exc}")
+        try:
+            info = m.describe()
+        finally:
+            m.close()
+        if args.json:
+            json.dump(info, sys.stdout, indent=2)
+            sys.stdout.write("\n")
+        else:
+            print(f"{info['name']}  {info['path']}")
+            for z in info["zones"]:
+                print(f"  zone {z['index']} {z['name']:8s} effects {' '.join(f'{e:#04x}' for e in z['effects'])}")
+        return
+    req = {"cmd": "mouse"}
+    if args.mode:
+        req["mode"] = args.mode
+    if args.color:
+        req["color"] = args.color
+        req.setdefault("mode", "solid")
+    if args.brightness is not None:
+        req["brightness"] = args.brightness
+    if args.claude is not None:
+        req["claude"] = args.claude
+    try:
+        data = _dispatch_or_local(req, _local_mouse)
+    except OSError as exc:
+        raise SystemExit(f"apexctl: {exc}")
+    if args.json:
+        json.dump(data, sys.stdout, indent=2)
+        sys.stdout.write("\n")
+    elif data.get("daemon") is not False:
+        mouse = data.get("mouse", {})
+        print(f"mouse {mouse.get('mode')}  ({mouse.get('name') or mouse.get('error') or 'not found'})")
+
+
 def cmd_keys(_args):
     for name in LEDS:
         print(name)
@@ -312,6 +374,16 @@ def build_parser():
     wh.add_argument("--invert", action="store_true", default=None)
     wh.add_argument("--no-invert", dest="invert", action="store_false")
     wh.set_defaults(func=cmd_wheel)
+
+    ms = sub.add_parser("mouse", help="Logitech mouse lighting: match the keyboard, solid, breathe, cycle, off")
+    ms.add_argument("mode", nargs="?", choices=MOUSE_MODES)
+    ms.add_argument("-c", "--color", help="theme colour name or #RRGGBB for solid / breathe")
+    ms.add_argument("-b", "--brightness", type=int)
+    ms.add_argument("--claude", action="store_true", default=None, help="breathe orange while Claude waits (default)")
+    ms.add_argument("--no-claude", dest="claude", action="store_false")
+    ms.add_argument("--info", action="store_true", help="show the detected mouse, its zones and effects")
+    ms.add_argument("--json", action="store_true")
+    ms.set_defaults(func=cmd_mouse)
 
     ky = sub.add_parser("keys", help="list LED names for per-key overrides")
     ky.set_defaults(func=cmd_keys)

@@ -25,6 +25,7 @@ Panel {
   readonly property var rgbProfiles: ["sunset", "ocean", "fire", "matrix", "cyberpunk", "aurora", "candy", "ice", "vaporwave", "gold"]
   readonly property var oledPages: ["clock", "now-playing", "workspace", "logo", "text", "claude", "system", "gpu", "clear"]
   readonly property var wheelModes: ["volume", "app", "workspace", "brightness", "oled", "rgb"]
+  readonly property var mouseModes: ["match", "solid", "breathe", "cycle", "off", "device"]
 
   readonly property string pluginDir: Qt.resolvedUrl(".").toString().replace("file://", "").replace(/\/$/, "")
   readonly property string scriptDir: pluginDir + "/bin"
@@ -45,6 +46,13 @@ Panel {
 
   function refresh() {
     if (!statusProc.running) statusProc.running = true
+  }
+
+  // Unset mouse brightness follows the keyboard in match mode.
+  function mouseBrightness() {
+    var m = root.status.mouse || {}
+    if (m.brightness !== null && m.brightness !== undefined) return Number(m.brightness)
+    return m.mode === "match" ? Number(root.status.rgb && root.status.rgb.brightness || 80) : 100
   }
 
   function pretty(value) {
@@ -303,6 +311,68 @@ Panel {
           width: parent.width
           wrapMode: Text.WordWrap
           text: "Volume stays the default. Switch the wheel to workspaces, brightness, OLED pages, or RGB effects. Click the wheel to mute / cycle."
+          color: root.bar.foreground
+          opacity: 0.65
+          font.family: root.bar.fontFamily
+          font.pixelSize: Style.font.caption
+        }
+
+        PanelSeparator { visible: !!root.status.mouse; foreground: root.bar.foreground }
+        PanelSectionHeader {
+          visible: !!root.status.mouse
+          text: "MOUSE"
+          foreground: root.bar.foreground
+          fontFamily: root.bar.fontFamily
+        }
+
+        Flow {
+          visible: !!root.status.mouse
+          width: parent.width
+          spacing: Style.spacing.xs
+          Repeater {
+            model: root.mouseModes
+            Button {
+              required property string modelData
+              text: modelData === "match" ? "match keyboard" : root.pretty(modelData)
+              foreground: root.bar.foreground
+              fontFamily: root.bar.fontFamily
+              fontSize: Style.font.caption
+              bordered: true
+              active: root.status.mouse && root.status.mouse.mode === modelData
+              onClicked: root.apex(["mouse", modelData])
+            }
+          }
+        }
+
+        Row {
+          visible: !!root.status.mouse
+          width: parent.width
+          spacing: Style.spacing.xs
+          Button {
+            text: "Dim"
+            foreground: root.bar.foreground
+            fontFamily: root.bar.fontFamily
+            fontSize: Style.font.caption
+            bordered: true
+            onClicked: root.apex(["mouse", "-b", String(Math.max(10, root.mouseBrightness() - 15))])
+          }
+          Button {
+            text: "Bright"
+            foreground: root.bar.foreground
+            fontFamily: root.bar.fontFamily
+            fontSize: Style.font.caption
+            bordered: true
+            onClicked: root.apex(["mouse", "-b", String(Math.min(100, root.mouseBrightness() + 15))])
+          }
+        }
+
+        Text {
+          visible: !!root.status.mouse
+          width: parent.width
+          wrapMode: Text.WordWrap
+          text: root.status.mouse && root.status.mouse.present
+            ? (root.status.mouse.name || "Logitech mouse") + " follows the keyboard in match mode, goes dark when you are away, and breathes orange while Claude waits."
+            : "No Logitech mouse reachable" + (root.status.mouse && root.status.mouse.error ? ": " + root.status.mouse.error : "") + "."
           color: root.bar.foreground
           opacity: 0.65
           font.family: root.bar.fontFamily

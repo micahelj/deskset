@@ -17,6 +17,7 @@ from . import config as cfgmod
 from . import devices
 from . import gpu as gpumod
 from . import hypr
+from . import mouse as mousemod
 from . import mpris
 from . import oled
 from . import presence
@@ -65,6 +66,7 @@ class Daemon:
         self.toast_state = None  # (until, title, subtitle)
         self.appwheel = wheelapp.AppWheel(self._toast)
         self.lockwatch = presence.LockWatch()
+        self.mouse = None
         self.was_away = False
         self.oled_hash = None
         self.wheel_devs = []
@@ -77,6 +79,7 @@ class Daemon:
         self._connect_rgb()
         self._open_inputs()
         self.workspaces = workspaces.Tracker()
+        self.mouse = mousemod.MouseLights()
         self._listen()
         signal.signal(signal.SIGTERM, self._stop)
         signal.signal(signal.SIGINT, self._stop)
@@ -178,6 +181,7 @@ class Daemon:
                 self._push_oled(force=True)
             if now - self.last_rgb >= 1.0 / RGB_FPS:
                 self._push_rgb()
+                self._push_mouse()
                 self.last_rgb = now
             interval = max(OLED_MIN_DT, self.cfg["oled"].get("interval_ms", 250) / 1000.0)
             page = self.cfg["oled"]["page"]
@@ -251,6 +255,7 @@ class Daemon:
             "wheel": dict(self.cfg["wheel"]),
             "openrgb": bool(self.openrgb),
             "oled_hid": oled.find_oled_hidraw(),
+            "mouse": {**self.cfg["mouse"], **(self.mouse.status() if self.mouse else {"present": False})},
         }
 
     def handle(self, req):
@@ -263,6 +268,8 @@ class Daemon:
             return self._cmd_oled(req)
         if cmd == "wheel":
             return self._cmd_wheel(req)
+        if cmd == "mouse":
+            return self._cmd_mouse(req)
         if cmd == "reload":
             self.cfg = cfgmod.load()
             self.palette = rgbmod.load_palette()
@@ -333,6 +340,21 @@ class Daemon:
             self.cfg["wheel"]["invert"] = bool(req["invert"])
         cfgmod.save(self.cfg)
         self._apply_wheel_grab()
+        return self.status()
+
+    def _cmd_mouse(self, req):
+        mcfg = self.cfg["mouse"]
+        if req.get("mode") in mousemod.MODES:
+            mcfg["mode"] = req["mode"]
+        if "color" in req:
+            mcfg["color"] = req["color"]
+        if "brightness" in req:
+            value = req["brightness"]
+            mcfg["brightness"] = None if value is None else int(max(0, min(100, int(value))))
+        if "claude" in req:
+            mcfg["claude"] = bool(req["claude"])
+        cfgmod.save(self.cfg)
+        self._push_mouse()
         return self.status()
 
     def _cycle_oled(self, delta):
@@ -483,6 +505,13 @@ class Daemon:
             self.openrgb.close()
             self.openrgb = None
 
+    def _push_mouse(self):
+        # Cheap: the worker thread only talks to the mouse when this changes.
+        if not self.mouse:
+            return
+        waiting = self._claude_summary()["state"] == "waiting"
+        self.mouse.want(mousemod.wanted(self.cfg, self.palette, self._away(), waiting))
+
     def _claude_focused(self):
         # Polling hyprctl and /proc at frame rate is wasteful; once a second is plenty.
         now = time.monotonic()
@@ -574,6 +603,8 @@ class Daemon:
             dev.close()
         if self.workspaces:
             self.workspaces.close()
+        if self.mouse:
+            self.mouse.stop()
         for conn in list(self.clients):
             self._drop(conn)
         if self.server:
