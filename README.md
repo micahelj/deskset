@@ -94,9 +94,14 @@ sudo udevadm control --reload && sudo udevadm trigger
 ## Use it
 
 Click the **Apex Keyboard** widget in the bar (right section) to open the
-panel: RGB effects, OLED pages (clock, media, workspace, logo, Claude,
-system, GPU), and
-wheel modes.
+panel. Three tabs pick what it shows:
+
+- **Favorites**: brightness for keyboard and mouse together, lighting presets
+  the mouse follows, mouse DPI presets, the everyday OLED pages and wheel modes.
+- **Mouse**: lighting, brightness, DPI and button mapping (when a supported
+  Logitech mouse is connected).
+- **Keyboard**: RGB effects and gradient profiles, every OLED page (clock,
+  media, workspace, logo, Claude, system, GPU) and wheel mode.
 
 CLI examples:
 
@@ -168,6 +173,35 @@ apexctl mouse breathe -c magenta
 apexctl mouse --no-claude
 apexctl mouse --info           # detected mouse, lighting zones and effect IDs
 ```
+
+### DPI
+
+`apexctl mouse --dpi 1600` sets the sensor (G502: 100–25,600 in steps of 50).
+It is re-applied when the mouse reconnects, and a change made with the mouse's
+own DPI buttons is picked up, so that DPI comes back after a power cycle.
+
+### Buttons
+
+The extra buttons are remapped in the mouse's active onboard profile, so the
+mapping stays in the mouse and works without the daemon, on any computer.
+Left and right click are never touched. The first change backs the original
+profile up to `~/.config/omarchy/apex-mouse-profile.bak`;
+`apexctl mouse --restore-buttons` writes it back.
+
+```bash
+apexctl mouse --buttons                    # current mapping and every action
+apexctl mouse --button g9=menu --button g7=workspace-next
+apexctl mouse --restore-buttons
+```
+
+Buttons: `wheel`, `g4` (back), `g5` (forward), `g6` (sniper), `g7` / `g8`
+(DPI up / down), `g9`, `tilt-left`, `tilt-right`. Actions run on the mouse
+(back, forward, middle, DPI up / down / shift, scroll left / right, battery,
+media keys, copy / paste / undo, nothing) or on the desktop (previous / next
+workspace, screenshot, mute microphone, keyboard cheat sheet, Omarchy menu).
+Desktop actions send F13–F18, which a marked `[apex-mouse]` block in
+`~/.config/hypr/bindings.lua` binds; it is added the first time one is
+chosen (with a `.bak.apex-mouse` copy of the file) and removed by `uninstall`.
 
 ## System monitor
 
