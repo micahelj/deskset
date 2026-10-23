@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Regenerate docs/media/claude-page.png from the plugin's own OLED renderer.
+"""Regenerate docs/media/claude-page.png and .gif from the plugin's own OLED renderer.
 
 Each 128x40 frame is exactly what the daemon sends to the keyboard; every
 lit pixel is drawn as a square with a thin gap so it reads like an OLED.
+The GIF plays one prompt from start to finish.
 
     python3 scripts/claude_preview.py
 """
@@ -47,6 +48,38 @@ def oled(frame):
     return out
 
 
+# One prompt, start to finish: (seconds, summary, 5-hour usage).
+TURN = 13  # draws "Cogitating"
+STORY = (
+    (2.0, {"state": "idle", "count": 1}, 0.18),
+    (2.5, {"state": "thinking", "count": 1, "busy": 1, "turn": TURN}, 0.18),
+    (1.5, {"state": "working", "detail": "Read: oled.py", "count": 1, "busy": 1, "turn": TURN}, 0.19),
+    (1.0, {"state": "thinking", "count": 1, "busy": 1, "turn": TURN}, 0.19),
+    (2.0, {"state": "working", "detail": "Edit: render.py", "count": 1, "busy": 1, "turn": TURN}, 0.20),
+    (2.5, {"state": "waiting", "detail": "Allow Bash?", "count": 1, "busy": 1, "turn": TURN}, 0.20),
+    (1.5, {"state": "working", "detail": "Bash", "count": 1, "busy": 1, "turn": TURN}, 0.21),
+    (1.0, {"state": "thinking", "count": 1, "busy": 1, "turn": TURN}, 0.21),
+    (2.5, {"state": "done", "count": 1}, 0.22),
+)
+STEP = 0.25  # the page animates at 4 frames per second
+
+
+def gif(path):
+    frames, durations, t = [], [], 0.0
+    for seconds, summary, usage in STORY:
+        for _ in range(round(seconds / STEP)):
+            frame = render.claude_page(summary, usage, t, RESETS_IN - t)
+            if frames and frame.tobytes() == frames[-1][0]:
+                durations[-1] += int(STEP * 1000)
+            else:
+                frames.append((frame.tobytes(), frame))
+                durations.append(int(STEP * 1000))
+            t += STEP
+    tiles = [oled(f).convert("P", palette=Image.ADAPTIVE, colors=4) for _, f in frames]
+    tiles[0].save(path, save_all=True, append_images=tiles[1:], duration=durations, loop=0, optimize=True)
+    print(path)
+
+
 def main(path=os.path.join(ROOT, "docs", "media", "claude-page.png")):
     tiles = [oled(render.claude_page(s, USAGE, t, RESETS_IN)) for s, t in FRAMES]
     tw, th = tiles[0].size
@@ -56,6 +89,7 @@ def main(path=os.path.join(ROOT, "docs", "media", "claude-page.png")):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     sheet.save(path, optimize=True)
     print(path)
+    gif(os.path.splitext(path)[0] + ".gif")
 
 
 if __name__ == "__main__":

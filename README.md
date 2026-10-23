@@ -4,7 +4,7 @@
 per-key RGB, the 128×40 OLED, and the OLED scroll wheel; plus Logitech mouse
 lighting, DPI and buttons. Formerly Apex Keyboard.</p>
 
-<p align="center"><img src="docs/media/claude-page.png" alt="The OLED's Claude Code page in four states: Hatching (running a tool), Needs you, Smooshing (between tools) and Idle" width="720"></p>
+<p align="center"><img src="docs/media/claude-page.gif" alt="Animation of the OLED's Claude Code page through one prompt: Idle, Cogitating while it reads and edits files, Needs you for a Bash permission, then Done, with the 5-hour usage bar and its reset countdown along the bottom" width="536"></p>
 
 <p align="center"><sub>The OLED's <a href="#claude-code-activity">Claude Code page</a>,
 rendered by the plugin's own OLED code at 4× scale (not a photo of the
@@ -292,6 +292,8 @@ is doing, with a small pixel mascot (pictured at the top of this README):
 | Between tool calls | bobs | `Cogitating…` |
 | Reply finished (about 20 s) | blinks | `Done` |
 | Nothing happening | blinks | `Idle` · session count |
+
+<p align="center"><img src="docs/media/claude-page.png" alt="The page in four states: Hatching (running a tool), Needs you, Smooshing (between tools) and Idle" width="720"></p>
 
 While Claude is working, the first line shows a word picked fresh for each
 prompt (`Cogitating…`, `Noodling…`, `Percolating…`), much like Claude Code's
