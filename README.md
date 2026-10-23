@@ -1,7 +1,8 @@
-<h1 align="center">Apex Keyboard</h1>
+<h1 align="center">Deskset</h1>
 
 <p align="center">Omarchy shell plugin for SteelSeries Apex keyboards:
-per-key RGB, the 128×40 OLED, and the OLED scroll wheel.</p>
+per-key RGB, the 128×40 OLED, and the OLED scroll wheel; plus Logitech mouse
+lighting, DPI and buttons. Formerly Apex Keyboard.</p>
 
 <p align="center"><img src="docs/media/claude-page.png" alt="The OLED's Claude Code page in four states: Working, Needs you, Thinking and Idle" width="720"></p>
 
@@ -93,7 +94,7 @@ sudo udevadm control --reload && sudo udevadm trigger
 
 ## Use it
 
-Click the **Apex Keyboard** widget in the bar (right section) to open the
+Click the **Deskset** widget in the bar (right section) to open the
 panel. Three tabs pick what it shows:
 
 - **Favorites**: brightness for keyboard and mouse together, lighting presets
@@ -373,7 +374,7 @@ After changing the Claude page's drawing, regenerate its README image with
 
 ## Credits
 
-Apex Keyboard is by [David Zúñiga](https://github.com/davidzu), built from
+Deskset is a fork of Apex Keyboard by [David Zúñiga](https://github.com/davidzu), built from
 [omarchy-plugin-template](https://github.com/tcballard/omarchy-plugin-template)
 guidance and the Omarchy template set. The Apex Pro TKL Gen 3 OLED and RGB
 protocol comes from

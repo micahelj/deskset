@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
   "id": "io.github.davidzu.sonic_apex",
-  "name": "Apex Keyboard",
+  "name": "Deskset",
   "version": "1.0.0",
   "author": "davidzu",
   "license": "MIT",
-  "description": "Control SteelSeries Apex 7 TKL RGB, OLED, and the scroll wheel from the Omarchy bar.",
+  "description": "Control SteelSeries Apex keyboards (RGB, OLED, scroll wheel) and Logitech mice (lighting, DPI, buttons) from the Omarchy bar.",
   "kinds": [
     "bar-widget"
   ],
@@ -14,15 +14,20 @@
     "barWidget": "Panel.qml"
   },
   "barWidget": {
-    "displayName": "Apex Keyboard",
-    "description": "RGB effects, OLED pages, and wheel modes for the Apex 7 TKL",
+    "displayName": "Deskset",
+    "description": "Keyboard RGB, OLED pages and wheel modes, plus mouse lighting, DPI and buttons",
     "category": "System",
     "aliases": [
       "apex",
       "keyboard",
       "steelseries",
       "oled",
-      "rgb"
+      "rgb",
+      "deskset",
+      "mouse",
+      "logitech",
+      "g502",
+      "dpi"
     ],
     "allowMultiple": false,
     "defaultSection": "right"
