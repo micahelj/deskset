@@ -144,6 +144,17 @@ def _resumed_from(pid):
     return ""
 
 
+def _backgrounded(pid):
+    """True when the process is hosted by the Claude daemon (no terminal of its own)."""
+    try:
+        with open(f"/proc/{int(pid)}/stat", encoding="utf-8") as fh:
+            ppid = int(fh.read().rsplit(")", 1)[1].split()[1])
+        with open(f"/proc/{ppid}/cmdline", "rb") as fh:
+            return b"--bg-pty-host" in fh.read().split(b"\0")
+    except (OSError, TypeError, ValueError, IndexError):
+        return False
+
+
 def _alive(pid):
     try:
         return pid > 0 and os.path.exists(f"/proc/{int(pid)}")
@@ -180,7 +191,10 @@ def sessions(now=None, state_dir=STATE_DIR):
         rec["id"] = name[:-5]
         out.append(rec)
     superseded = {_resumed_from(r.get("pid")) for r in out} - {""}
-    return [r for r in out if r["id"] not in superseded]
+    # Idle sessions parked in the background daemon aren't open anywhere; they
+    # count again once they're working, waiting or have just replied.
+    return [r for r in out if r["id"] not in superseded
+            and not (r["state"] == "idle" and _backgrounded(r.get("pid")))]
 
 
 def summary(now=None, state_dir=STATE_DIR):

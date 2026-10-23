@@ -79,6 +79,25 @@ class Sessions(unittest.TestCase):
         s = claude.summary(state_dir=self.dir)
         self.assertEqual((s["state"], s["count"]), ("thinking", 1))
 
+    def test_idle_background_session_is_not_counted(self):
+        host = subprocess.Popen([sys.executable, "-c",
+                                 "import subprocess, sys, time; subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(30)']); time.sleep(30)",
+                                 "--bg-pty-host"])
+        self.addCleanup(host.kill)
+        deadline = time.time() + 5
+        while time.time() < deadline:
+            kids = open(f"/proc/{host.pid}/task/{host.pid}/children").read().split()
+            if kids:
+                break
+            time.sleep(0.02)
+        child = int(kids[0])
+        self.addCleanup(os.kill, child, 9)
+        self.hook("fg", hook_event_name="SessionStart")
+        for state, count in (("idle", 1), ("working", 2)):
+            with open(os.path.join(self.dir, "bg.json"), "w") as fh:
+                json.dump({"state": state, "detail": "", "ts": time.time(), "pid": child}, fh)
+            self.assertEqual(claude.summary(state_dir=self.dir)["count"], count, state)
+
     def test_turn_is_kept_until_the_next_prompt(self):
         self.hook("a", hook_event_name="UserPromptSubmit")
         turn = claude.summary(state_dir=self.dir)["turn"]
