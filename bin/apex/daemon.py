@@ -510,11 +510,11 @@ class Daemon:
         return page, None
 
     def _away(self):
-        """Screen locked or the idle screensaver up (and the feature is on)."""
+        """Idle screensaver up, or locked with the screen blanked (and the feature is on)."""
         if not self.cfg["rgb"].get("away_dark", True):
             return False
         screensaver = bool(self.workspaces and self.workspaces.screensavers)
-        return screensaver or self.lockwatch.locked
+        return screensaver or self.lockwatch.dark
 
     def _toast(self, title, subtitle=""):
         # Called from the wheel worker thread; a tuple swap is atomic.

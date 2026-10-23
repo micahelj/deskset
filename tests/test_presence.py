@@ -45,21 +45,37 @@ class Lock(unittest.TestCase):
         self.assertFalse(presence.query_locked(["echo", "false"]))
         self.assertFalse(presence.query_locked(["/nonexistent/omarchy-shell"]))  # never dark by mistake
 
+    def test_screen_off(self):
+        off = '[{"disabled": false, "dpmsStatus": false}, {"disabled": true, "dpmsStatus": true}]'
+        on = '[{"disabled": false, "dpmsStatus": false}, {"disabled": false, "dpmsStatus": true}]'
+        self.assertTrue(presence.query_screen_off(["echo", off]))
+        self.assertFalse(presence.query_screen_off(["echo", on]))
+        self.assertFalse(presence.query_screen_off(["echo", "[]"]))
+        self.assertFalse(presence.query_screen_off(["echo", "garbage"]))
+        self.assertFalse(presence.query_screen_off(["/nonexistent/hyprctl"]))
+
 
 class Verdict(unittest.TestCase):
-    def fake(self, screensavers=(), locked=False, enabled=True):
+    def fake(self, screensavers=(), dark=False, enabled=True):
         return types.SimpleNamespace(
             cfg={"rgb": {"away_dark": enabled}},
             workspaces=types.SimpleNamespace(screensavers=set(screensavers)),
-            lockwatch=types.SimpleNamespace(locked=locked),
+            lockwatch=types.SimpleNamespace(dark=dark),
         )
 
     def test_away_states(self):
         away = daemon.Daemon._away
         self.assertFalse(away(self.fake()))
         self.assertTrue(away(self.fake(screensavers={"b2"})))
-        self.assertTrue(away(self.fake(locked=True)))
-        self.assertFalse(away(self.fake(locked=True, enabled=False)))
+        self.assertTrue(away(self.fake(dark=True)))
+        self.assertFalse(away(self.fake(dark=True, enabled=False)))
+
+    def test_lit_on_wake(self):
+        watch = presence.LockWatch.__new__(presence.LockWatch)
+        watch.locked, watch.screen_off = True, False  # unlock screen showing
+        self.assertFalse(watch.dark)
+        watch.screen_off = True
+        self.assertTrue(watch.dark)
 
 
 if __name__ == "__main__":

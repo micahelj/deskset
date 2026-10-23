@@ -26,8 +26,8 @@ DEFAULT = {
         # Number row 1-0 shows Hyprland workspaces 1-10 by colour: theme colour
         # names or "#RRGGBB" for active / visible / occupied / empty.
         "workspace_keys": True,
-        # Keyboard lights and OLED go dark while the screen is locked or the
-        # idle screensaver is up.
+        # Keyboard lights and OLED go dark while the idle screensaver is up or
+        # the lock screen has blanked the displays.
         "away_dark": True,
         "workspace_colors": {"active": "#FFFFFF", "visible": "#FF00C8", "occupied": "#00FF40", "empty": "#0030FF"},
         "speed": 45,

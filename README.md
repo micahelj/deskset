@@ -126,9 +126,11 @@ colours read best: LEDs wash pastels toward white. Turn the feature off with
 ## Lights out when away
 
 The keyboard lighting and the OLED go dark while the Omarchy idle
-screensaver is up or the screen is locked, and come back as soon as you
-return. The screensaver is noticed instantly from Hyprland's window events;
-the lock is checked every 2 seconds. Typing still works while dark. Turn it
+screensaver is up or the lock screen has turned the displays off, and come
+back as soon as you return: waking the lock screen lights the keyboard so you
+can see it while typing your password. The screensaver is noticed instantly
+from Hyprland's window events; the lock is checked every 2 seconds, and while
+locked the displays' power state is checked every 0.4 seconds. Typing still works while dark. Turn it
 off with `"away_dark": false` under `"rgb"` in `~/.config/omarchy/apex.json`.
 
 ## System monitor
