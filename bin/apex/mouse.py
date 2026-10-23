@@ -377,6 +377,7 @@ class MouseLights:
         self.dpi_applied = None
         self.dpi = None
         self.dpi_moved = False
+        self.buttons = None
         self.mouse = None
         self.info = None
         self.error = None
@@ -400,7 +401,31 @@ class MouseLights:
             low, high, step = info["dpi_range"]
             out.update(dpi=self.dpi, dpi_min=low, dpi_max=high, dpi_step=step,
                        dpi_presets=[d for d in DPI_PRESETS if low <= d <= high])
+        if self.mouse is not None and self.buttons:
+            from . import onboard
+            out["buttons"] = [{"id": slot, "label": onboard.SLOTS[slot], "action": action}
+                              for slot, action in sorted(self.buttons.items())]
+            out["button_actions"] = [{"value": name, "label": label} for name, (label, _b) in onboard.ACTIONS.items()]
         return out
+
+    def _profiles(self):
+        from . import onboard
+        if self.mouse is None:
+            raise HidppError(self.error or "no mouse connected")
+        return onboard.Profiles(self.mouse.dev)
+
+    def set_buttons(self, changes):
+        """Remap buttons in the mouse's active onboard profile (writes its flash)."""
+        with self.lock:
+            self.buttons = self._profiles().set_buttons(changes)
+        return self.buttons
+
+    def restore_buttons(self):
+        with self.lock:
+            profiles = self._profiles()
+            profiles.restore()
+            self.buttons = profiles.buttons()
+        return self.buttons
 
     def _drop(self, exc):
         self.error = str(exc)
@@ -435,6 +460,10 @@ class MouseLights:
                         self.mouse = self.opener()
                         self.info = self.mouse.describe()
                         self.error = None
+                        try:
+                            self.buttons = self._profiles().buttons()
+                        except (OSError, ValueError):
+                            self.buttons = None  # no onboard profiles: lighting and DPI only
                     self._sync(spec, dpi)
                 except OSError as exc:
                     # Asleep, switched off, unplugged (or moved between cable and

@@ -267,6 +267,57 @@ def _local_mouse(cfg, req):
         m.close()
 
 
+def _mouse_buttons(args, req):
+    # Button mapping lives in the mouse's flash, so it goes through the daemon,
+    # which owns the mouse; without it, talk to the mouse directly.
+    from . import mouse as mousemod, onboard
+    if args.button:
+        changes = {}
+        for item in args.button:
+            name, _, action = item.partition("=")
+            slot = onboard.slot_for(name)
+            if slot is None or action not in onboard.ACTIONS:
+                raise SystemExit(f"use BUTTON=ACTION with BUTTON one of {', '.join(onboard.ALIASES)} "
+                                 f"and ACTION one of {', '.join(onboard.ACTIONS)}")
+            changes[slot] = action
+        req["buttons"] = changes
+    if args.restore_buttons:
+        req["restore_buttons"] = True
+    data = _talk(req, timeout=10.0)
+    if data is None:
+        try:
+            m = mousemod.open_mouse()
+        except OSError as exc:
+            raise SystemExit(f"apexctl: {exc}")
+        try:
+            profiles = onboard.Profiles(m.dev)
+            if args.restore_buttons:
+                profiles.restore()
+            buttons = profiles.set_buttons(req["buttons"]) if args.button else profiles.buttons()
+        except (OSError, ValueError) as exc:
+            raise SystemExit(f"apexctl: {exc}")
+        finally:
+            m.close()
+        if args.button and any(a in onboard.DESKTOP_ACTIONS for a in req["buttons"].values()):
+            onboard.ensure_hypr_block(os.path.join(cfgmod.PLUGIN_ROOT, "bin", "apexctl"))
+        rows = [{"id": s, "label": onboard.SLOTS[s], "action": a} for s, a in sorted(buttons.items())]
+    else:
+        if data.get("ok") is False:
+            raise SystemExit(f"apexctl: {data.get('error')}")
+        rows = data.get("mouse", {}).get("buttons") or []
+        if not rows:
+            raise SystemExit(f"apexctl: no button mapping ({data.get('mouse', {}).get('error') or 'mouse not found'})")
+    if args.json:
+        json.dump(rows, sys.stdout, indent=2)
+        sys.stdout.write("\n")
+        return
+    alias = {slot: name for name, slot in onboard.ALIASES.items()}
+    for row in rows:
+        print(f"{alias[row['id']]:10s} {row['label']:12s} {row['action']}")
+    if args.buttons:
+        print("\nactions: " + ", ".join(onboard.ACTIONS))
+
+
 def cmd_mouse(args):
     from . import mouse as mousemod
     if args.info:
@@ -298,6 +349,8 @@ def cmd_mouse(args):
         req["claude"] = args.claude
     if args.dpi is not None:
         req["dpi"] = args.dpi
+    if args.button or args.buttons or args.restore_buttons:
+        return _mouse_buttons(args, req)
     try:
         data = _dispatch_or_local(req, _local_mouse)
     except OSError as exc:
@@ -384,6 +437,10 @@ def build_parser():
     ms.add_argument("--claude", action="store_true", default=None, help="breathe orange while Claude waits (default)")
     ms.add_argument("--no-claude", dest="claude", action="store_false")
     ms.add_argument("--dpi", type=int, help="sensor DPI, e.g. 1600")
+    ms.add_argument("--button", action="append", metavar="BUTTON=ACTION",
+                    help="remap a button in the mouse's onboard profile, e.g. g9=play-pause (repeatable)")
+    ms.add_argument("--buttons", action="store_true", help="list button mappings and actions")
+    ms.add_argument("--restore-buttons", action="store_true", help="put the original button profile back")
     ms.add_argument("--info", action="store_true", help="show the detected mouse, its zones and effects")
     ms.add_argument("--json", action="store_true")
     ms.set_defaults(func=cmd_mouse)

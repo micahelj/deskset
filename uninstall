@@ -18,5 +18,14 @@ done
 rm -f "$HOME/.config/omarchy/hooks/theme-set.d/apply-keyboard-rgb"
 rm -f "$HOME/.config/omarchy/hooks/post-boot.d/apexctl"
 
+# Mouse desktop-action bindings added by `apexctl mouse --button`. The mouse's
+# onboard profile keeps its mapping; `apexctl mouse --restore-buttons` first
+# if you want the original buttons back.
+bindings="$HOME/.config/hypr/bindings.lua"
+if [[ -f $bindings ]] && grep -q '\[apex-mouse\]' "$bindings"; then
+  sed -i '/^-- \[apex-mouse\]/,/^-- \[\/apex-mouse\]/d' "$bindings"
+  echo "Removed mouse bindings from $bindings"
+fi
+
 echo "Done. Then run: omarchy plugin remove io.github.davidzu.sonic_apex"
 echo "User config kept at ~/.config/omarchy/apex.json"

@@ -355,6 +355,18 @@ class Daemon:
             mcfg["claude"] = bool(req["claude"])
         if "dpi" in req:
             mcfg["dpi"] = None if req["dpi"] is None else int(req["dpi"])
+        if req.get("buttons") or req.get("restore_buttons"):
+            from . import onboard
+            try:
+                if req.get("restore_buttons"):
+                    self.mouse.restore_buttons()
+                else:
+                    changes = {int(slot): action for slot, action in req["buttons"].items()}
+                    self.mouse.set_buttons(changes)
+                    if any(a in onboard.DESKTOP_ACTIONS for a in changes.values()):
+                        onboard.ensure_hypr_block(os.path.join(cfgmod.PLUGIN_ROOT, "bin", "apexctl"))
+            except (OSError, ValueError) as exc:
+                return {**self.status(), "ok": False, "error": str(exc)}
         cfgmod.save(self.cfg)
         self._push_mouse()
         return self.status()
