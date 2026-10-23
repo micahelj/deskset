@@ -92,6 +92,22 @@ class Usage(unittest.TestCase):
 
     def test_missing_record(self):
         self.assertIsNone(claude.session_usage("/nonexistent/claude.json"))
+        self.assertIsNone(claude.session_resets_in("/nonexistent/claude.json"))
+
+    def test_resets_in(self):
+        now = datetime(2026, 1, 1, 12, 0, tzinfo=timezone.utc)
+        path = self.write([{"label": "Session (5-hour)", "percent": 0.4, "resetsAt": "2026-01-01T15:32:00+00:00"}])
+        self.assertEqual(claude.session_resets_in(path, now=now), 3 * 3600 + 32 * 60)
+
+    def test_resets_in_gone_once_window_refreshed(self):
+        path = self.write([{"label": "Session (5-hour)", "percent": 0.8, "resetsAt": "2000-01-01T00:00:00+00:00"}])
+        self.assertIsNone(claude.session_resets_in(path))
+
+    def test_countdown_text(self):
+        from apex import render
+        self.assertEqual(render._countdown(3 * 3600 + 5 * 60 + 59), "3h 05m")
+        self.assertEqual(render._countdown(42 * 60), "42m")
+        self.assertEqual(render._countdown(20), "<1m")
 
 
 class EscAlert(unittest.TestCase):

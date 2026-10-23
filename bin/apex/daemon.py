@@ -635,6 +635,7 @@ class Daemon:
         elif page == "claude":
             state["claude"] = summary or claude.summary()
             state["usage"] = claude.session_usage()
+            state["resets_in"] = claude.session_resets_in()
         return page, state
 
     def _push_oled(self, force=False):

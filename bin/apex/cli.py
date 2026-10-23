@@ -166,6 +166,7 @@ def _local_oled(cfg, req):
         from . import claude
         state["claude"] = claude.summary()
         state["usage"] = claude.session_usage()
+        state["resets_in"] = claude.session_resets_in()
     frame = render.render(page, state)
     path = oled.send_image(frame)
     print(f"oled {page} -> {path}")

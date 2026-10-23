@@ -164,28 +164,48 @@ def summary(now=None, state_dir=STATE_DIR):
     return {"state": top.get("state", "idle"), "detail": top.get("detail", ""), "count": len(live), "busy": busy}
 
 
-def session_usage(path=USAGE_PATH, now=None):
-    """Fraction of the 5-hour window used, from the Omarchy Agents record, or None."""
+def _five_hour(path):
     try:
         with open(path, encoding="utf-8") as fh:
             limits = json.load(fh).get("limits") or []
     except (OSError, json.JSONDecodeError, AttributeError):
         return None
-    now = now or datetime.now(timezone.utc)
     for entry in limits:
-        if "5-hour" not in str(entry.get("label", "")):
-            continue
-        try:
-            resets = datetime.fromisoformat(str(entry.get("resetsAt")))
-            if resets <= now:
-                return 0.0
-        except ValueError:
-            pass
-        try:
-            return max(0.0, min(1.0, float(entry.get("percent"))))
-        except (TypeError, ValueError):
-            return None
+        if "5-hour" in str(entry.get("label", "")):
+            return entry
     return None
+
+
+def _resets_at(entry):
+    try:
+        resets = datetime.fromisoformat(str(entry.get("resetsAt")))
+    except ValueError:
+        return None
+    return resets if resets.tzinfo else resets.replace(tzinfo=timezone.utc)
+
+
+def session_usage(path=USAGE_PATH, now=None):
+    """Fraction of the 5-hour window used, from the Omarchy Agents record, or None."""
+    entry = _five_hour(path)
+    if entry is None:
+        return None
+    resets = _resets_at(entry)
+    if resets and resets <= (now or datetime.now(timezone.utc)):
+        return 0.0
+    try:
+        return max(0.0, min(1.0, float(entry.get("percent"))))
+    except (TypeError, ValueError):
+        return None
+
+
+def session_resets_in(path=USAGE_PATH, now=None):
+    """Seconds until the 5-hour window refreshes, or None once it has (or is unknown)."""
+    entry = _five_hour(path)
+    resets = entry and _resets_at(entry)
+    if not resets:
+        return None
+    left = (resets - (now or datetime.now(timezone.utc))).total_seconds()
+    return left if left > 0 else None
 
 
 def _children(pid):

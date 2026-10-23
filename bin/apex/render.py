@@ -130,10 +130,20 @@ def _blit_rows(im, rows, x0, y0, scale=2):
                         px[xx, yy] = 255
 
 
-def claude_page(summary, usage=None, t=0.0):
+def _countdown(seconds):
+    """3h 05m / 42m / <1m"""
+    mins = int(seconds // 60)
+    if mins < 1:
+        return "<1m"
+    h, m = divmod(mins, 60)
+    return f"{h}h {m:02d}m" if h else f"{m}m"
+
+
+def claude_page(summary, usage=None, t=0.0, resets_in=None):
     """Claude Code activity: animated mascot, state, detail, 5-hour usage meter.
 
-    summary is claude.summary(); usage is a 0..1 fraction or None.
+    summary is claude.summary(); usage is a 0..1 fraction or None; resets_in is
+    seconds until the 5-hour window refreshes, or None.
     """
     state = summary.get("state", "none")
     tick = int(t * 4)  # 4 animation frames per second
@@ -177,8 +187,13 @@ def claude_page(summary, usage=None, t=0.0):
         _blit_text(draw, (46, 15), detail, FONT_SM)
 
     if usage is not None:
-        draw.rectangle([46, 35, 125, 38], outline=255)
-        fill = int(77 * max(0.0, min(1.0, usage)))
+        right = 125
+        if resets_in is not None:
+            left = _countdown(resets_in)
+            right = 125 - _text_width(draw, left, FONT_SM) - 4
+            _blit_text(draw, (right + 4, 29), left, FONT_SM)
+        draw.rectangle([46, 35, right, 38], outline=255)
+        fill = int((right - 48) * max(0.0, min(1.0, usage)))
         if fill:
             draw.rectangle([47, 36, 47 + fill - 1, 37], fill=255)
     return im
@@ -309,7 +324,7 @@ def render(page, state):
     if page == "cheatsheet":
         return cheatsheet_page(state.get("cheatsheet") or {})
     if page == "claude":
-        return claude_page(state.get("claude") or {}, state.get("usage"), t)
+        return claude_page(state.get("claude") or {}, state.get("usage"), t, state.get("resets_in"))
     if page == "text":
         return text_page(state.get("text", ""), t)
     return text_page(page)

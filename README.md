@@ -299,8 +299,10 @@ Claude session would otherwise keep the Claude page up, so the change is
 visible.
 
 With several sessions open, the most urgent one is shown. A thin bar along
-the bottom shows how much of your 5-hour Claude limit is used, read from the
-Omarchy **Agents** widget's data; it is hidden when that data is missing.
+the bottom shows how much of your 5-hour Claude limit is used, with a
+countdown beside it until that window refreshes (`3h 05m`, `42m`, `<1m`),
+read from the Omarchy **Agents** widget's data; the bar is hidden when that
+data is missing, and the countdown once the window has already refreshed.
 
 While any session is waiting for your permission, the **Esc** key also
 flashes orange (about once a second) on top of your normal lighting, so you

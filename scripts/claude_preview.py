@@ -24,6 +24,7 @@ FRAMES = (
     ({"state": "idle", "detail": "", "count": 2, "busy": 0}, 0.25),  # eyes open, not mid-blink
 )
 USAGE = 0.19
+RESETS_IN = 3 * 3600 + 32 * 60
 SCALE = 4       # screen pixels per OLED pixel
 DOT = 3         # lit square inside each cell
 PAD = 12        # bezel around each frame
@@ -47,7 +48,7 @@ def oled(frame):
 
 
 def main(path=os.path.join(ROOT, "docs", "media", "claude-page.png")):
-    tiles = [oled(render.claude_page(s, USAGE, t)) for s, t in FRAMES]
+    tiles = [oled(render.claude_page(s, USAGE, t, RESETS_IN)) for s, t in FRAMES]
     tw, th = tiles[0].size
     sheet = Image.new("RGB", (2 * tw + 3 * GAP, 2 * th + 3 * GAP), BACKGROUND)
     for i, tile in enumerate(tiles):
