@@ -268,6 +268,26 @@ def _local_mouse(cfg, req):
         m.close()
 
 
+def _mouse_identify():
+    import time
+    from . import mouse as mousemod, onboard
+    data = _talk({"cmd": "mouse", "identify": True})
+    if data is None:
+        raise SystemExit("apexctl: --identify needs the daemon (systemctl --user start apexctl)")
+    print("Press a mouse button (other than left / right click)…", flush=True)
+    deadline = time.monotonic() + mousemod.IDENTIFY_SECONDS + 1
+    while time.monotonic() < deadline:
+        time.sleep(0.2)
+        ident = (_talk({"cmd": "status"}) or {}).get("mouse", {}).get("identify", {})
+        if ident.get("slot") is not None:
+            alias = next(name for name, slot in onboard.ALIASES.items() if slot == ident["slot"])
+            print(f"{onboard.SLOTS.get(ident['slot'], ident['slot'])}  ({alias})")
+            return
+        if not ident.get("active"):
+            break
+    raise SystemExit("no button pressed")
+
+
 def _mouse_buttons(args, req):
     # Button mapping lives in the mouse's flash, so it goes through the daemon,
     # which owns the mouse; without it, talk to the mouse directly.
@@ -312,9 +332,11 @@ def _mouse_buttons(args, req):
         json.dump(rows, sys.stdout, indent=2)
         sys.stdout.write("\n")
         return
-    alias = {slot: name for name, slot in onboard.ALIASES.items()}
+    alias = {}
+    for name, slot in onboard.ALIASES.items():
+        alias.setdefault(slot, name)  # positional names first
     for row in rows:
-        print(f"{alias[row['id']]:10s} {row['label']:12s} {row['action']}")
+        print(f"{alias[row['id']]:13s} {row['label']:21s} {row['action']}")
     if args.buttons:
         print("\nactions: " + ", ".join(onboard.ACTIONS))
 
@@ -350,6 +372,11 @@ def cmd_mouse(args):
         req["claude"] = args.claude
     if args.dpi is not None:
         req["dpi"] = args.dpi
+    if args.identify_start:
+        _talk({"cmd": "mouse", "identify": True})
+        return
+    if args.identify:
+        return _mouse_identify()
     if args.button or args.buttons or args.restore_buttons:
         return _mouse_buttons(args, req)
     try:
@@ -476,6 +503,8 @@ def build_parser():
                     help="remap a button in the mouse's onboard profile, e.g. g9=play-pause (repeatable)")
     ms.add_argument("--buttons", action="store_true", help="list button mappings and actions")
     ms.add_argument("--restore-buttons", action="store_true", help="put the original button profile back")
+    ms.add_argument("--identify", action="store_true", help="press a mouse button to see which one it is")
+    ms.add_argument("--identify-start", action="store_true", help=argparse.SUPPRESS)  # the panel polls status
     ms.add_argument("--info", action="store_true", help="show the detected mouse, its zones and effects")
     ms.add_argument("--json", action="store_true")
     ms.set_defaults(func=cmd_mouse)

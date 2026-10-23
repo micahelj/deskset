@@ -19,8 +19,10 @@ PALETTE = {"accent": (10, 20, 30), "green": (0, 200, 0)}
 class FakeMouse:
     """A HID++ 2.0 mouse with 0x8070: zone 0 primary, zone 1 logo (no breathe)."""
 
-    FEATURES = {0x0000: 0, 0x0005: 3, 0x2201: 5, 0x8070: 9, 0x8100: 11}
+    FEATURES = {0x0000: 0, 0x0005: 3, 0x2201: 5, 0x8070: 9, 0x8100: 11, 0x8110: 12}
     dpi = 1600
+    spy_presses = ()  # button bitmasks sent once spy starts
+    spy_on = False
 
     @staticmethod
     def default_sectors():
@@ -78,6 +80,14 @@ class FakeMouse:
             elif feat == 9 and fn == 2:
                 effect = self.ZONES[p[0]][1][p[1]]
                 self._reply(msg, bytes([p[0], p[1], 0, effect]))
+            elif feat == 12 and fn in (1, 2):
+                self.spy_on = fn == 1
+                self._reply(msg, b"")
+                if fn == 1:
+                    for bits in self.spy_presses:
+                        note = bytearray(20)
+                        note[0:6] = bytes([0x11, 0x01, 12, 0x00]) + bits.to_bytes(2, "big")
+                        self.theirs.send(bytes(note))
             elif feat == 11 and fn == 0:
                 self._reply(msg, bytes.fromhex("0103010501 0b 10 00ff 0a04".replace(" ", "")))
             elif feat == 11 and fn == 4:
@@ -344,6 +354,35 @@ class Buttons(unittest.TestCase):
         self.assertIn('"/x/apexctl cheatsheet"', text)
         self.assertEqual(open(path + ".bak.apex-mouse").read(), "-- mine\n")
         self.assertFalse(onboard.ensure_hypr_block("/x/apexctl", os.path.join(self.tmp.name, "missing.lua")))
+
+
+class Identify(unittest.TestCase):
+    def test_reports_first_remappable_press_and_stops_spy(self):
+        fake = FakeMouse(noise=False)
+        fake.spy_presses = (0x0001, 0x0000, 0x0080)  # left click (ignored), release, left-front
+        lights = mouse.MouseLights(fake.open, ping_seconds=60)
+        deadline = time.monotonic() + 2
+        while lights.mouse is None and time.monotonic() < deadline:
+            time.sleep(0.01)
+        self.assertTrue(lights.identify(seconds=2))
+        while lights.identifying and time.monotonic() < deadline:
+            time.sleep(0.01)
+        self.assertEqual(lights.status()["identify"], {"active": False, "slot": 7})
+        self.assertFalse(fake.spy_on)
+        lights.stop()
+
+    def test_times_out_quietly(self):
+        fake = FakeMouse(noise=False)
+        lights = mouse.MouseLights(fake.open, ping_seconds=60)
+        deadline = time.monotonic() + 2
+        while lights.mouse is None and time.monotonic() < deadline:
+            time.sleep(0.01)
+        lights.identify(seconds=0.2)
+        while lights.identifying and time.monotonic() < deadline:
+            time.sleep(0.01)
+        self.assertEqual(lights.status()["identify"], {"active": False, "slot": None})
+        self.assertFalse(fake.spy_on)
+        lights.stop()
 
 
 class Discovery(unittest.TestCase):

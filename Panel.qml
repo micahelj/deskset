@@ -226,6 +226,26 @@ Panel {
     newDpi.text = ""
   }
 
+  // ── Mouse buttons ──────────────────────────────────────────────────
+  property int hotSlot: -1  // hovered row or marker
+  property bool identifyRequested: false
+  readonly property var identify: root.mouse && root.mouse.identify || ({})
+  readonly property bool identifyActive: root.identifyRequested || !!root.identify.active
+  readonly property int identifiedSlot: root.identify.slot === null || root.identify.slot === undefined ? -1 : root.identify.slot
+
+  function startIdentify() {
+    root.identifyRequested = true
+    identifyGiveUp.restart()
+    root.apex(["mouse", "--identify-start"])
+  }
+
+  // Never stay on "Press a mouse button…" if the daemon could not start.
+  Timer {
+    id: identifyGiveUp
+    interval: 12000
+    onTriggered: root.identifyRequested = false
+  }
+
   // Installing adds a user service, hooks and a ~/.local/bin link, so it only
   // runs when asked from the panel, never on load.
   function setup() {
@@ -256,6 +276,13 @@ Panel {
     onTriggered: root.refresh()
   }
 
+  Timer {
+    interval: 250
+    running: root.opened && (root.identifyActive || root.identifiedSlot >= 0)
+    repeat: true
+    onTriggered: root.refresh()
+  }
+
   Process {
     id: installProc
     command: ["bash", root.pluginDir + "/install", "--silent"]
@@ -272,6 +299,7 @@ Panel {
         try {
           var data = JSON.parse(String(text || "{}"))
           if (data && data.rgb) root.status = data
+          if (data && data.mouse && data.mouse.identify && data.mouse.identify.active) root.identifyRequested = false
         } catch (e) { /* ignore */ }
       }
     }
@@ -555,6 +583,125 @@ Panel {
       hoverEnabled: true
       cursorShape: Qt.PointingHandCursor
       onClicked: root.tab = card.target
+    }
+  }
+
+  // Top view of a G502 (front up) with a numbered marker on each remappable
+  // button; the side buttons sit off the left edge. Positions were confirmed
+  // with the mouse's button spy. Markers light with root.hotSlot or the last
+  // identified button.
+  component MouseDiagram: Item {
+    id: md
+    property var buttons: []
+    // slot -> [x, y] in the body box (0..1); side buttons go slightly negative.
+    readonly property var spots: ({
+      2: [0.50, 0.16], 9: [0.66, 0.16], 10: [0.34, 0.16],
+      7: [0.24, 0.20], 6: [0.24, 0.31], 8: [0.50, 0.36],
+      5: [-0.06, 0.37], 4: [-0.03, 0.47], 3: [-0.03, 0.58]
+    })
+    readonly property real boxH: height - Style.space(8)
+    readonly property real boxW: boxH * 0.62
+    readonly property real boxX: (width - boxW) / 2 + Style.space(10)
+    readonly property real boxY: Style.space(4)
+    width: parent.width
+    height: Style.space(230)
+
+    function px(u) { return md.boxX + u * md.boxW }
+    function py(v) { return md.boxY + v * md.boxH }
+
+    Canvas {
+      id: body
+      anchors.fill: parent
+      property color ink: root.ink
+      onInkChanged: requestPaint()
+      onWidthChanged: requestPaint()
+      onHeightChanged: requestPaint()
+      onPaint: {
+        var c = getContext("2d")
+        c.reset()
+        var X = md.px, Y = md.py
+        c.lineWidth = 1.5
+        c.strokeStyle = Qt.rgba(ink.r, ink.g, ink.b, 0.55)
+        c.fillStyle = Qt.rgba(ink.r, ink.g, ink.b, 0.06)
+        // Body: narrow front with the two click buttons, thumb rest flaring left.
+        c.beginPath()
+        c.moveTo(X(0.26), Y(0.06))
+        c.bezierCurveTo(X(0.40), Y(0.00), X(0.60), Y(0.00), X(0.74), Y(0.06))
+        c.bezierCurveTo(X(0.88), Y(0.16), X(0.94), Y(0.46), X(0.89), Y(0.70))
+        c.bezierCurveTo(X(0.85), Y(0.90), X(0.70), Y(1.00), X(0.50), Y(1.00))
+        c.bezierCurveTo(X(0.30), Y(1.00), X(0.12), Y(0.92), X(0.07), Y(0.78))
+        c.bezierCurveTo(X(0.01), Y(0.66), X(0.03), Y(0.54), X(0.11), Y(0.47))
+        c.bezierCurveTo(X(0.15), Y(0.36), X(0.16), Y(0.17), X(0.26), Y(0.06))
+        c.closePath()
+        c.fill()
+        c.stroke()
+        // Where the click buttons end, and the split between them.
+        c.beginPath()
+        c.moveTo(X(0.14), Y(0.43))
+        c.bezierCurveTo(X(0.35), Y(0.47), X(0.65), Y(0.47), X(0.90), Y(0.42))
+        c.moveTo(X(0.50), Y(0.03))
+        c.lineTo(X(0.50), Y(0.08))
+        c.moveTo(X(0.50), Y(0.28))
+        c.lineTo(X(0.50), Y(0.45))
+        c.stroke()
+        // Wheel.
+        c.beginPath()
+        c.roundedRect(X(0.455), Y(0.08), X(0.545) - X(0.455), Y(0.27) - Y(0.08), 6, 6)
+        c.stroke()
+        // Small buttons: two left of the left click, one behind the wheel.
+        c.beginPath()
+        c.roundedRect(X(0.20), Y(0.15), X(0.28) - X(0.20), Y(0.25) - Y(0.15), 4, 4)
+        c.roundedRect(X(0.20), Y(0.27), X(0.28) - X(0.20), Y(0.35) - Y(0.27), 4, 4)
+        c.ellipse(X(0.46), Y(0.33), X(0.54) - X(0.46), Y(0.39) - Y(0.33))
+        c.stroke()
+        // Side buttons along the left edge: sniper, thumb front, thumb rear.
+        c.beginPath()
+        c.roundedRect(X(0.04), Y(0.33), X(0.10) - X(0.04), Y(0.41) - Y(0.33), 4, 4)
+        c.roundedRect(X(0.07), Y(0.43), X(0.13) - X(0.07), Y(0.51) - Y(0.43), 4, 4)
+        c.roundedRect(X(0.06), Y(0.53), X(0.12) - X(0.06), Y(0.62) - Y(0.53), 4, 4)
+        c.stroke()
+        // Leader lines from the side buttons to their markers.
+        c.strokeStyle = Qt.rgba(ink.r, ink.g, ink.b, 0.3)
+        c.beginPath()
+        c.moveTo(X(0.04), Y(0.37)); c.lineTo(X(-0.06) + 9, Y(0.37))
+        c.moveTo(X(0.07), Y(0.47)); c.lineTo(X(-0.03) + 9, Y(0.47))
+        c.moveTo(X(0.06), Y(0.58)); c.lineTo(X(-0.03) + 9, Y(0.58))
+        c.stroke()
+      }
+    }
+
+    Repeater {
+      model: md.buttons
+      Rectangle {
+        id: marker
+        required property var modelData
+        required property int index
+        readonly property var spot: md.spots[modelData.id] || [1.1, 0.1 * index]
+        readonly property bool lit: root.hotSlot === modelData.id || root.identifiedSlot === modelData.id
+        x: md.px(spot[0]) - width / 2 - (spot[0] < 0 ? Style.space(10) : 0)
+        y: md.py(spot[1]) - height / 2
+        width: Style.space(18)
+        height: width
+        radius: width / 2
+        color: marker.lit ? Color.accent : Qt.rgba(root.bar.background.r, root.bar.background.g, root.bar.background.b, 0.9)
+        border.width: 1
+        border.color: marker.lit ? Color.accent : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.6)
+        scale: marker.lit ? 1.25 : 1
+        Behavior on scale { NumberAnimation { duration: 120 } }
+        Text {
+          anchors.centerIn: parent
+          text: marker.index + 1
+          color: marker.lit ? root.bar.background : root.ink
+          font.family: root.bar.fontFamily
+          font.pixelSize: Style.font.caption
+          font.bold: true
+        }
+        MouseArea {
+          anchors.fill: parent
+          hoverEnabled: true
+          onContainsMouseChanged: root.hotSlot = containsMouse ? marker.modelData.id : -1
+        }
+      }
     }
   }
 
@@ -982,27 +1129,79 @@ Panel {
             }
           }
 
-          Header { visible: root.mousePresent && !!(root.mouse.buttons && root.mouse.buttons.length); text: "BUTTONS" }
+          Item {
+            visible: root.mousePresent && !!(root.mouse.buttons && root.mouse.buttons.length)
+            width: parent.width
+            height: identifyChip.implicitHeight
+            Header {
+              anchors.left: parent.left
+              anchors.verticalCenter: parent.verticalCenter
+              text: "BUTTONS"
+            }
+            Chip {
+              id: identifyChip
+              anchors.right: parent.right
+              iconText: "󰍽"
+              text: root.identifyActive ? "Press a mouse button…" : "Identify"
+              selected: root.identifyActive
+              onClicked: root.startIdentify()
+            }
+          }
+          MouseDiagram {
+            visible: root.mousePresent && !!(root.mouse.buttons && root.mouse.buttons.length)
+            buttons: root.mousePresent && root.mouse.buttons || []
+          }
           Repeater {
             model: root.mousePresent && root.mouse.buttons || []
-            Item {
+            Rectangle {
+              id: buttonRow
               required property var modelData
+              required property int index
+              readonly property bool lit: root.hotSlot === modelData.id || root.identifiedSlot === modelData.id
               width: parent.width
-              height: Math.max(buttonName.implicitHeight, buttonAction.implicitHeight)
+              height: Math.max(buttonName.implicitHeight, buttonAction.implicitHeight) + Style.space(6)
+              radius: Style.cornerRadius
+              color: buttonRow.lit ? Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08) : "transparent"
+              HoverHandler {
+                onHoveredChanged: root.hotSlot = hovered ? buttonRow.modelData.id : (root.hotSlot === buttonRow.modelData.id ? -1 : root.hotSlot)
+              }
+              Rectangle {
+                id: badge
+                anchors.left: parent.left
+                anchors.leftMargin: Style.space(4)
+                anchors.verticalCenter: parent.verticalCenter
+                width: Style.space(18)
+                height: width
+                radius: width / 2
+                color: buttonRow.lit ? Color.accent : "transparent"
+                border.width: 1
+                border.color: buttonRow.lit ? Color.accent : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.6)
+                Text {
+                  anchors.centerIn: parent
+                  text: buttonRow.index + 1
+                  color: buttonRow.lit ? root.bar.background : root.ink
+                  font.family: root.bar.fontFamily
+                  font.pixelSize: Style.font.caption
+                  font.bold: true
+                }
+              }
               Caption {
                 id: buttonName
-                anchors.left: parent.left
+                anchors.left: badge.right
+                anchors.leftMargin: Style.space(8)
+                anchors.right: buttonAction.left
+                anchors.rightMargin: Style.space(8)
                 anchors.verticalCenter: parent.verticalCenter
-                width: parent.width * 0.4
                 text: modelData.label
                 elide: Text.ElideRight
-                opacity: 0.85
+                opacity: buttonRow.lit ? 1 : 0.85
+                font.bold: buttonRow.lit
               }
               Dropdown {
                 id: buttonAction
                 anchors.right: parent.right
                 anchors.verticalCenter: parent.verticalCenter
-                width: parent.width * 0.6
+                width: parent.width * 0.52
                 showLabel: false
                 value: modelData.action
                 options: root.mouse.button_actions || []
@@ -1014,7 +1213,7 @@ Panel {
           }
           Note {
             visible: root.mousePresent && !!(root.mouse.buttons && root.mouse.buttons.length)
-            text: "Saved in the mouse itself. apexctl mouse --restore-buttons puts the originals back."
+            text: "Hover a row to find it on the mouse, or press Identify and then the button. Saved in the mouse itself; apexctl mouse --restore-buttons puts the originals back."
           }
         }
 

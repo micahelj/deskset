@@ -31,6 +31,7 @@ ROOT = 0x0000
 DEVICE_NAME = 0x0005
 BATTERY_VOLTAGE = 0x1001
 ADJUSTABLE_DPI = 0x2201
+MOUSE_BUTTON_SPY = 0x8110
 COLOR_LED_EFFECTS = 0x8070
 
 # 0x8070 effect IDs and where their parameters go (Solaar's LEDEffects table).
@@ -346,6 +347,8 @@ BREATHE_MS = 4000
 CYCLE_MS = 10000
 CLAUDE_BREATHE_MS = 1600
 DPI_PRESETS = (400, 800, 1600, 3200, 6400)
+IDENTIFY_SECONDS = 10.0  # how long "press a button" waits
+IDENTIFIED_SECONDS = 4.0  # how long status reports the answer
 
 
 def spec_hex(spec):
@@ -427,6 +430,8 @@ class MouseLights:
         self.dpi = None
         self.dpi_moved = False
         self.battery = None
+        self.identifying = False
+        self.identified = None  # (slot, monotonic time)
         self.buttons = None
         self.mouse = None
         self.info = None
@@ -455,6 +460,9 @@ class MouseLights:
             low, high, step = info["dpi_range"]
             out.update(dpi=self.dpi, dpi_min=low, dpi_max=high, dpi_step=step,
                        dpi_presets=[d for d in DPI_PRESETS if low <= d <= high])
+        found = self.identified
+        out["identify"] = {"active": self.identifying,
+                           "slot": found[0] if found and time.monotonic() - found[1] < IDENTIFIED_SECONDS else None}
         if self.mouse is not None and self.buttons:
             from . import onboard
             out["buttons"] = [{"id": slot, "label": onboard.SLOTS[slot], "action": action}
@@ -473,6 +481,52 @@ class MouseLights:
         with self.lock:
             self.buttons = self._profiles().set_buttons(changes)
         return self.buttons
+
+    def identify(self, seconds=IDENTIFY_SECONDS):
+        """Wait (on a thread) for the next button press and report its slot.
+
+        Button spy makes the mouse report raw presses over HID++ (bit n = slot
+        n) instead of acting on them, so it is only on for this short wait.
+        """
+        if self.identifying or self.mouse is None:
+            return False
+        self.identifying = True
+        self.identified = None
+        threading.Thread(target=self._identify, args=(seconds,), name="apex-identify", daemon=True).start()
+        return True
+
+    def _identify(self, seconds):
+        try:
+            with self.lock:
+                if self.mouse is None:
+                    return
+                dev = self.mouse.dev
+                spy = dev.feature(MOUSE_BUTTON_SPY)
+                if not spy:
+                    return
+                dev.request(spy, 1)
+                try:
+                    deadline = time.monotonic() + seconds
+                    while self.running and time.monotonic() < deadline:
+                        ready, _, _ = select.select([dev.fd], [], [], 0.2)
+                        if not ready:
+                            continue
+                        try:
+                            data = os.read(dev.fd, 64)
+                        except BlockingIOError:
+                            continue
+                        if len(data) < 6 or data[0] not in (SHORT, LONG) or data[2] != spy:
+                            continue
+                        bits = int.from_bytes(data[4:6], "big") & ~0b11  # left / right click don't count
+                        if bits:
+                            self.identified = ((bits & -bits).bit_length() - 1, time.monotonic())
+                            return
+                finally:
+                    dev.request(spy, 2)
+        except OSError:
+            pass
+        finally:
+            self.identifying = False
 
     def restore_buttons(self):
         with self.lock:

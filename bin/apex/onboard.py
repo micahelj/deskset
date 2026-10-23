@@ -26,18 +26,23 @@ BUTTONS_OFFSET = 32
 BACKUP_PATH = os.path.join(os.path.dirname(CONFIG_PATH), "apex-mouse-profile.bak")
 
 # Remappable slots of the G502 layout, named after their default function.
+# Remappable slots of the G502 layout, named by where the button sits
+# (confirmed on hardware with the mouse's button spy).
 SLOTS = {
     2: "Wheel click",
-    3: "G4 back",
-    4: "G5 forward",
-    5: "G6 sniper",
-    6: "G8 DPI down",
-    7: "G7 DPI up",
-    8: "G9",
+    3: "Thumb rear",
+    4: "Thumb front",
+    5: "Sniper (red)",
+    6: "Left of click, rear",
+    7: "Left of click, front",
+    8: "Behind wheel",
     9: "Tilt right",
     10: "Tilt left",
 }
-ALIASES = {"wheel": 2, "g4": 3, "g5": 4, "g6": 5, "g8": 6, "g7": 7, "g9": 8, "tilt-right": 9, "tilt-left": 10}
+ALIASES = {"wheel": 2, "thumb-rear": 3, "thumb-front": 4, "sniper": 5, "left-rear": 6, "left-front": 7,
+           "behind-wheel": 8, "tilt-right": 9, "tilt-left": 10,
+           # Older G-number names.
+           "g4": 3, "g5": 4, "g6": 5, "g8": 6, "g7": 7, "g9": 8}
 
 
 def slot_for(name):

@@ -374,6 +374,8 @@ class Daemon:
             mcfg["claude"] = bool(req["claude"])
         if "dpi" in req:
             mcfg["dpi"] = None if req["dpi"] is None else int(req["dpi"])
+        if req.get("identify") and self.mouse:
+            self.mouse.identify()
         if req.get("buttons") or req.get("restore_buttons"):
             from . import onboard
             try:
