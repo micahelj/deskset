@@ -96,6 +96,15 @@ Panel {
     if (!installProc.running) installProc.running = true
   }
 
+  // `quickshell ipc -p /usr/share/omarchy/shell call deskset tab mouse` opens a tab.
+  IpcHandler {
+    target: "deskset"
+    function tab(name: string): void {
+      if (root.tabs.some(t => t.value === name)) root.tab = name
+      root.open()
+    }
+  }
+
   Component.onCompleted: root.refresh()
   onOpenedChanged: if (opened) root.refresh()
 
