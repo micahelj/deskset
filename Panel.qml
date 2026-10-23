@@ -752,7 +752,7 @@ Panel {
     bar: root.bar
     open: root.opened
     contentWidth: panel.fittedContentWidth(Style.space(440))
-    contentHeight: panel.fittedContentHeight(panelColumn.implicitHeight, Style.space(640))
+    contentHeight: panel.fittedContentHeight(panelColumn.implicitHeight)  // the shell caps it at the screen
 
     ScrollView {
       id: scrollArea
