@@ -107,13 +107,41 @@ def handle_hook(raw, pid=None):
             return
         state, detail = mapped
         os.makedirs(STATE_DIR, mode=0o700, exist_ok=True)
-        record = {"state": state, "detail": detail, "ts": time.time(), "pid": claude_ancestor(pid)}
+        now = time.time()
+        record = {"state": state, "detail": detail, "ts": now, "pid": claude_ancestor(pid),
+                  "turn": now if event.get("hook_event_name") == "UserPromptSubmit" else _turn(path)}
         tmp = path + ".tmp"
         with open(tmp, "w", encoding="utf-8") as fh:
             json.dump(record, fh)
         os.replace(tmp, path)
     except Exception:  # noqa: BLE001 - see docstring
         pass
+
+
+def _turn(path):
+    """When the current prompt was submitted; it keys the turn's spinner word."""
+    try:
+        with open(path, encoding="utf-8") as fh:
+            return float(json.load(fh).get("turn", 0))
+    except (OSError, ValueError, TypeError, AttributeError):
+        return 0
+
+
+def _resumed_from(pid):
+    """Session id a process was started with `--resume <id or path>`, else ''.
+
+    Moving a session into the background daemon forks it under a new id while
+    the original process stays alive, so the old id must not count twice.
+    """
+    try:
+        with open(f"/proc/{int(pid)}/cmdline", "rb") as fh:
+            args = fh.read().decode("utf-8", "replace").split("\0")
+    except (OSError, TypeError, ValueError):
+        return ""
+    for i, arg in enumerate(args[:-1]):
+        if arg in ("--resume", "-r"):
+            return os.path.basename(args[i + 1]).removesuffix(".jsonl")
+    return ""
 
 
 def _alive(pid):
@@ -149,19 +177,22 @@ def sessions(now=None, state_dir=STATE_DIR):
             continue
         if rec.get("state") == "done" and age > DONE_SECONDS:
             rec["state"] = "idle"
+        rec["id"] = name[:-5]
         out.append(rec)
-    return out
+    superseded = {_resumed_from(r.get("pid")) for r in out} - {""}
+    return [r for r in out if r["id"] not in superseded]
 
 
 def summary(now=None, state_dir=STATE_DIR):
     """Most urgent session plus counts: {state, detail, count, busy}."""
     live = sessions(now, state_dir)
     if not live:
-        return {"state": "none", "detail": "", "count": 0, "busy": 0}
+        return {"state": "none", "detail": "", "count": 0, "busy": 0, "turn": 0}
     live.sort(key=lambda r: (PRIORITY.index(r.get("state", "idle")) if r.get("state") in PRIORITY else len(PRIORITY), -r.get("ts", 0)))
     top = live[0]
     busy = sum(1 for r in live if r.get("state") in ACTIVE)
-    return {"state": top.get("state", "idle"), "detail": top.get("detail", ""), "count": len(live), "busy": busy}
+    return {"state": top.get("state", "idle"), "detail": top.get("detail", ""), "count": len(live), "busy": busy,
+            "turn": top.get("turn", 0)}
 
 
 def _five_hour(path):

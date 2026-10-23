@@ -4,7 +4,7 @@
 per-key RGB, the 128×40 OLED, and the OLED scroll wheel; plus Logitech mouse
 lighting, DPI and buttons. Formerly Apex Keyboard.</p>
 
-<p align="center"><img src="docs/media/claude-page.png" alt="The OLED's Claude Code page in four states: Working, Needs you, Thinking and Idle" width="720"></p>
+<p align="center"><img src="docs/media/claude-page.png" alt="The OLED's Claude Code page in four states: Hatching (running a tool), Needs you, Smooshing (between tools) and Idle" width="720"></p>
 
 <p align="center"><sub>The OLED's <a href="#claude-code-activity">Claude Code page</a>,
 rendered by the plugin's own OLED code at 4× scale (not a photo of the
@@ -288,10 +288,16 @@ is doing, with a small pixel mascot (pictured at the top of this README):
 | State | Mascot | Text |
 |---|---|---|
 | Waiting for your permission | jumps, with a `!` | `Needs you` · `Allow Bash?` |
-| Running a tool | walks | `Working` · `Edit: render.py` |
-| Between tool calls | bobs | `Thinking…` |
+| Running a tool | walks | `Cogitating…` · `Edit: render.py` |
+| Between tool calls | bobs | `Cogitating…` |
 | Reply finished (about 20 s) | blinks | `Done` |
 | Nothing happening | blinks | `Idle` · session count |
+
+While Claude is working, the first line shows a word picked fresh for each
+prompt (`Cogitating…`, `Noodling…`, `Percolating…`), much like Claude Code's
+own spinner, and it stays put until the turn ends. A session moved to Claude
+Code's background daemon is forked under a new id while the original process
+stays alive; the plugin counts that as one session, not two.
 
 Choosing another OLED page (panel, `apexctl oled`, or the wheel) flashes its
 name for about a second and then shows it for a few seconds even while a

@@ -18,9 +18,9 @@ from PIL import Image, ImageDraw  # noqa: E402
 from apex import render  # noqa: E402
 
 FRAMES = (
-    ({"state": "working", "detail": "Edit: render.py", "count": 1, "busy": 1}, 0.25),
+    ({"state": "working", "detail": "Edit: render.py", "count": 1, "busy": 1, "turn": 7}, 0.25),
     ({"state": "waiting", "detail": "Allow Bash?", "count": 1, "busy": 1}, 0.25),
-    ({"state": "thinking", "detail": "", "count": 2, "busy": 1}, 0.5),
+    ({"state": "thinking", "detail": "", "count": 2, "busy": 1, "turn": 3}, 0.5),
     ({"state": "idle", "detail": "", "count": 2, "busy": 0}, 0.25),  # eyes open, not mid-blink
 )
 USAGE = 0.19

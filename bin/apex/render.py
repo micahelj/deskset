@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import random
 import time
 from datetime import datetime
 
@@ -117,6 +118,28 @@ _CLAUDE_LABEL = {
 }
 
 
+# Shown in place of Thinking/Working for a whole turn, one word per prompt,
+# in the spirit of Claude Code's spinner.
+CLAUDE_VERBS = (
+    "Baking", "Brewing", "Calculating", "Cerebrating", "Churning", "Clauding",
+    "Coalescing", "Cogitating", "Computing", "Concocting", "Conjuring",
+    "Considering", "Cooking", "Crafting", "Crunching", "Deliberating",
+    "Doodling", "Fermenting", "Finagling", "Forging", "Hatching", "Herding",
+    "Honking", "Ideating", "Inferring", "Kneading", "Marinating", "Moseying",
+    "Mulling", "Musing", "Noodling", "Percolating", "Pondering", "Processing",
+    "Puttering", "Puzzling", "Ruminating", "Scheming", "Schlepping",
+    "Simmering", "Smooshing", "Spinning", "Sprouting", "Stewing", "Thinking",
+    "Tinkering", "Vibing", "Whirring", "Whisking", "Working", "Wrangling",
+)
+
+
+def claude_verb(turn, draw=None):
+    """The turn's word: stable for one prompt, and short enough to fit."""
+    draw = draw or ImageDraw.Draw(blank())
+    fits = [v for v in CLAUDE_VERBS if _text_width(draw, v + "...", FONT_MD) <= OLED_WIDTH - 46]
+    return random.Random(int(turn * 1000)).choice(fits)
+
+
 def _blit_rows(im, rows, x0, y0, scale=2):
     px = im.load()
     for y, row in enumerate(rows):
@@ -170,7 +193,9 @@ def claude_page(summary, usage=None, t=0.0, resets_in=None):
         draw.rectangle([40, 14, 41, 15], fill=255)
 
     label = _CLAUDE_LABEL.get(state, state.title())
-    if state == "thinking":
+    if state in ("thinking", "working") and summary.get("turn"):
+        label = claude_verb(summary["turn"], draw)
+    if state in ("thinking", "working"):
         label += "." * (1 + (tick // 2) % 3)
     _blit_text(draw, (46, 1), label, FONT_MD)
 

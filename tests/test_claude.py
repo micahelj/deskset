@@ -2,6 +2,7 @@
 
 import json
 import os
+import subprocess
 import sys
 import tempfile
 import time
@@ -65,6 +66,29 @@ class Sessions(unittest.TestCase):
         self.hook("a", hook_event_name="Stop")
         later = time.time() + claude.DONE_SECONDS + 1
         self.assertEqual(claude.summary(now=later, state_dir=self.dir)["state"], "idle")
+
+    def test_forked_session_replaces_the_one_it_resumed(self):
+        # Moving a session to the background daemon forks it under a new id
+        # while the original process stays alive.
+        proc = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(30)",
+                                 "--fork-session", "--resume", "/x/old.jsonl"])
+        self.addCleanup(proc.kill)
+        self.hook("old", hook_event_name="Stop")
+        with open(os.path.join(self.dir, "new.json"), "w") as fh:
+            json.dump({"state": "thinking", "detail": "", "ts": time.time(), "pid": proc.pid}, fh)
+        s = claude.summary(state_dir=self.dir)
+        self.assertEqual((s["state"], s["count"]), ("thinking", 1))
+
+    def test_turn_is_kept_until_the_next_prompt(self):
+        self.hook("a", hook_event_name="UserPromptSubmit")
+        turn = claude.summary(state_dir=self.dir)["turn"]
+        self.assertGreater(turn, 0)
+        self.hook("a", hook_event_name="PreToolUse", tool_name="Bash")
+        self.hook("a", hook_event_name="PostToolUse", tool_name="Bash")
+        self.assertEqual(claude.summary(state_dir=self.dir)["turn"], turn)
+        time.sleep(0.01)
+        self.hook("a", hook_event_name="UserPromptSubmit")
+        self.assertGreater(claude.summary(state_dir=self.dir)["turn"], turn)
 
     def test_malformed_input_is_ignored(self):
         claude.handle_hook("not json")
@@ -150,6 +174,10 @@ class Page(unittest.TestCase):
             im = render.claude_page({"state": state, "detail": "Edit: x.py", "count": 1, "busy": 1}, 0.4, t=1.0)
             self.assertEqual(im.size, (128, 40))
             self.assertTrue(any(im.getdata()))
+
+    def test_verb_is_stable_per_turn_and_varies_between_turns(self):
+        self.assertEqual(render.claude_verb(123.456), render.claude_verb(123.456))
+        self.assertGreater(len({render.claude_verb(t + 0.5) for t in range(40)}), 5)
 
 
 if __name__ == "__main__":
