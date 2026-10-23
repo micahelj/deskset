@@ -586,34 +586,47 @@ Panel {
     }
   }
 
-  // Top view of a G502 (front up) with a numbered marker on each remappable
-  // button; the side buttons sit off the left edge. Positions were confirmed
-  // with the mouse's button spy. Markers light with root.hotSlot or the last
-  // identified button.
+  // Top view of a G502 (front up). Each remappable button gets a dot where it
+  // sits and a leader line out to a numbered marker in a column beside the
+  // mouse, so nothing covers the drawing. Positions were confirmed with the
+  // mouse's button spy. A marker lights with root.hotSlot or the button
+  // Identify last caught.
   component MouseDiagram: Item {
     id: md
     property var buttons: []
-    // slot -> [x, y] in the body box (0..1); side buttons go slightly negative.
+    // slot -> {at: [u, v] button centre in the body box, side, v: marker height}
     readonly property var spots: ({
-      2: [0.50, 0.16], 9: [0.66, 0.16], 10: [0.34, 0.16],
-      7: [0.24, 0.20], 6: [0.24, 0.31], 8: [0.50, 0.36],
-      5: [-0.06, 0.37], 4: [-0.03, 0.47], 3: [-0.03, 0.58]
+      10: { at: [0.44, 0.17], side: "L", v: 0.08 },
+      7: { at: [0.24, 0.20], side: "L", v: 0.20 },
+      6: { at: [0.24, 0.31], side: "L", v: 0.32 },
+      5: { at: [0.07, 0.37], side: "L", v: 0.44 },
+      4: { at: [0.10, 0.47], side: "L", v: 0.56 },
+      3: { at: [0.09, 0.575], side: "L", v: 0.68 },
+      2: { at: [0.50, 0.17], side: "R", v: 0.08 },
+      9: { at: [0.56, 0.17], side: "R", v: 0.20 },
+      8: { at: [0.50, 0.36], side: "R", v: 0.36 }
     })
     readonly property real boxH: height - Style.space(8)
     readonly property real boxW: boxH * 0.62
-    readonly property real boxX: (width - boxW) / 2 + Style.space(10)
+    readonly property real boxX: (width - boxW) / 2
     readonly property real boxY: Style.space(4)
+    readonly property real gutter: Style.space(46)
     width: parent.width
-    height: Style.space(230)
+    height: Style.space(250)
 
     function px(u) { return md.boxX + u * md.boxW }
     function py(v) { return md.boxY + v * md.boxH }
+    function markerX(spot) { return spot.side === "L" ? md.boxX - md.gutter : md.boxX + md.boxW + md.gutter }
+    function lit(slot) { return root.hotSlot === slot || root.identifiedSlot === slot }
 
     Canvas {
       id: body
       anchors.fill: parent
       property color ink: root.ink
+      property color accent: Color.accent
+      property var litState: [root.hotSlot, root.identifiedSlot]
       onInkChanged: requestPaint()
+      onLitStateChanged: requestPaint()
       onWidthChanged: requestPaint()
       onHeightChanged: requestPaint()
       onPaint: {
@@ -644,29 +657,38 @@ Panel {
         c.moveTo(X(0.50), Y(0.28))
         c.lineTo(X(0.50), Y(0.45))
         c.stroke()
-        // Wheel.
+        // Wheel, the two buttons left of the left click, the one behind the wheel.
         c.beginPath()
         c.roundedRect(X(0.455), Y(0.08), X(0.545) - X(0.455), Y(0.27) - Y(0.08), 6, 6)
-        c.stroke()
-        // Small buttons: two left of the left click, one behind the wheel.
-        c.beginPath()
         c.roundedRect(X(0.20), Y(0.15), X(0.28) - X(0.20), Y(0.25) - Y(0.15), 4, 4)
         c.roundedRect(X(0.20), Y(0.27), X(0.28) - X(0.20), Y(0.35) - Y(0.27), 4, 4)
         c.ellipse(X(0.46), Y(0.33), X(0.54) - X(0.46), Y(0.39) - Y(0.33))
-        c.stroke()
         // Side buttons along the left edge: sniper, thumb front, thumb rear.
-        c.beginPath()
         c.roundedRect(X(0.04), Y(0.33), X(0.10) - X(0.04), Y(0.41) - Y(0.33), 4, 4)
         c.roundedRect(X(0.07), Y(0.43), X(0.13) - X(0.07), Y(0.51) - Y(0.43), 4, 4)
         c.roundedRect(X(0.06), Y(0.53), X(0.12) - X(0.06), Y(0.62) - Y(0.53), 4, 4)
         c.stroke()
-        // Leader lines from the side buttons to their markers.
-        c.strokeStyle = Qt.rgba(ink.r, ink.g, ink.b, 0.3)
-        c.beginPath()
-        c.moveTo(X(0.04), Y(0.37)); c.lineTo(X(-0.06) + 9, Y(0.37))
-        c.moveTo(X(0.07), Y(0.47)); c.lineTo(X(-0.03) + 9, Y(0.47))
-        c.moveTo(X(0.06), Y(0.58)); c.lineTo(X(-0.03) + 9, Y(0.58))
-        c.stroke()
+        // Leader lines and dots, the lit one in the accent colour.
+        for (var i = 0; i < md.buttons.length; i++) {
+          var slot = md.buttons[i].id
+          var spot = md.spots[slot]
+          if (!spot) continue
+          var on = md.lit(slot)
+          var ax = X(spot.at[0]), ay = Y(spot.at[1])
+          var mx = md.markerX(spot), my = Y(spot.v)
+          var elbow = spot.side === "L" ? Math.min(ax - 10, md.boxX - 8) : Math.max(ax + 10, md.boxX + md.boxW + 8)
+          c.strokeStyle = on ? accent : Qt.rgba(ink.r, ink.g, ink.b, 0.28)
+          c.lineWidth = on ? 2 : 1
+          c.beginPath()
+          c.moveTo(ax, ay)
+          c.lineTo(elbow, my)
+          c.lineTo(mx, my)
+          c.stroke()
+          c.fillStyle = on ? accent : Qt.rgba(ink.r, ink.g, ink.b, 0.7)
+          c.beginPath()
+          c.ellipse(ax - 2.5, ay - 2.5, 5, 5)
+          c.fill()
+        }
       }
     }
 
@@ -676,17 +698,18 @@ Panel {
         id: marker
         required property var modelData
         required property int index
-        readonly property var spot: md.spots[modelData.id] || [1.1, 0.1 * index]
-        readonly property bool lit: root.hotSlot === modelData.id || root.identifiedSlot === modelData.id
-        x: md.px(spot[0]) - width / 2 - (spot[0] < 0 ? Style.space(10) : 0)
-        y: md.py(spot[1]) - height / 2
-        width: Style.space(18)
+        readonly property var spot: md.spots[modelData.id] || null
+        readonly property bool lit: md.lit(modelData.id)
+        visible: !!spot
+        x: spot ? md.markerX(spot) - width / 2 : 0
+        y: spot ? md.py(spot.v) - height / 2 : 0
+        width: Style.space(20)
         height: width
         radius: width / 2
-        color: marker.lit ? Color.accent : Qt.rgba(root.bar.background.r, root.bar.background.g, root.bar.background.b, 0.9)
+        color: marker.lit ? Color.accent : Qt.rgba(root.bar.background.r, root.bar.background.g, root.bar.background.b, 0.95)
         border.width: 1
         border.color: marker.lit ? Color.accent : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.6)
-        scale: marker.lit ? 1.25 : 1
+        scale: marker.lit ? 1.2 : 1
         Behavior on scale { NumberAnimation { duration: 120 } }
         Text {
           anchors.centerIn: parent
@@ -699,7 +722,7 @@ Panel {
         MouseArea {
           anchors.fill: parent
           hoverEnabled: true
-          onContainsMouseChanged: root.hotSlot = containsMouse ? marker.modelData.id : -1
+          onContainsMouseChanged: root.hotSlot = containsMouse ? marker.modelData.id : (root.hotSlot === marker.modelData.id ? -1 : root.hotSlot)
         }
       }
     }
