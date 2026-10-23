@@ -99,6 +99,10 @@ panel. Three tabs pick what it shows:
 
 - **Favorites**: brightness for keyboard and mouse together, lighting presets
   the mouse follows, mouse DPI presets, the everyday OLED pages and wheel modes.
+  **Edit** picks which sections show and what each offers (custom colours and
+  DPI values too), or from a terminal:
+  `apexctl favorites --oled clock,system --dpi 800,1600 --colors theme,#4A1C90`
+  (`--reset` for the defaults).
 - **Mouse**: lighting, brightness, DPI and button mapping (when a supported
   Logitech mouse is connected).
 - **Keyboard**: RGB effects and gradient profiles, every OLED page (clock,
@@ -193,10 +197,15 @@ profile up to `~/.config/omarchy/apex-mouse-profile.bak`;
 apexctl mouse --buttons                    # current mapping and every action
 apexctl mouse --button g9=menu --button g7=workspace-next
 apexctl mouse --restore-buttons
+apexctl mouse --identify                   # press a button to see which one it is
 ```
 
-Buttons: `wheel`, `g4` (back), `g5` (forward), `g6` (sniper), `g7` / `g8`
-(DPI up / down), `g9`, `tilt-left`, `tilt-right`. Actions run on the mouse
+Buttons, named by where they sit: `wheel`, `thumb-rear` (back), `thumb-front`
+(forward), `sniper`, `left-front` / `left-rear` (the two beside the left click:
+DPI up / down), `behind-wheel`, `tilt-left`, `tilt-right` (`g4`-`g9` still
+work). The panel draws the mouse with a numbered marker per button; hover a
+row to find it, or press **Identify** and then the button, which briefly turns
+on the mouse's button spy (HID++ 0x8110) to see which one you pressed. Actions run on the mouse
 (back, forward, middle, DPI up / down / shift, scroll left / right, battery,
 media keys, copy / paste / undo, nothing) or on the desktop (previous / next
 workspace, screenshot, mute microphone, keyboard cheat sheet, Omarchy menu).
@@ -283,6 +292,11 @@ is doing, with a small pixel mascot (pictured at the top of this README):
 | Between tool calls | bobs | `Thinking…` |
 | Reply finished (about 20 s) | blinks | `Done` |
 | Nothing happening | blinks | `Idle` · session count |
+
+Choosing another OLED page (panel, `apexctl oled`, or the wheel) flashes its
+name for about a second and then shows it for a few seconds even while a
+Claude session would otherwise keep the Claude page up, so the change is
+visible.
 
 With several sessions open, the most urgent one is shown. A thin bar along
 the bottom shows how much of your 5-hour Claude limit is used, read from the
