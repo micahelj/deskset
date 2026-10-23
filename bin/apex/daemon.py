@@ -353,6 +353,8 @@ class Daemon:
             mcfg["brightness"] = None if value is None else int(max(0, min(100, int(value))))
         if "claude" in req:
             mcfg["claude"] = bool(req["claude"])
+        if "dpi" in req:
+            mcfg["dpi"] = None if req["dpi"] is None else int(req["dpi"])
         cfgmod.save(self.cfg)
         self._push_mouse()
         return self.status()
@@ -509,8 +511,15 @@ class Daemon:
         # Cheap: the worker thread only talks to the mouse when this changes.
         if not self.mouse:
             return
+        mcfg = self.cfg["mouse"]
+        if self.mouse.dpi_moved:
+            # DPI changed with the mouse's own buttons: keep it.
+            self.mouse.dpi_moved = False
+            if self.mouse.dpi and self.mouse.dpi != mcfg.get("dpi"):
+                mcfg["dpi"] = self.mouse.dpi
+                cfgmod.save(self.cfg)
         waiting = self._claude_summary()["state"] == "waiting"
-        self.mouse.want(mousemod.wanted(self.cfg, self.palette, self._away(), waiting))
+        self.mouse.want(mousemod.wanted(self.cfg, self.palette, self._away(), waiting), mcfg.get("dpi"))
 
     def _claude_focused(self):
         # Polling hyprctl and /proc at frame rate is wasteful; once a second is plenty.

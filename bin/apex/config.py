@@ -56,6 +56,9 @@ DEFAULT = {
         "brightness": None,
         # Breathe the Claude alert colour while a session needs you.
         "claude": True,
+        # Sensor DPI, re-applied when the mouse reconnects; None = leave the
+        # mouse's own. Tracks changes made with the mouse's DPI buttons.
+        "dpi": None,
     },
 }
 

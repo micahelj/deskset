@@ -26,18 +26,37 @@ Panel {
   readonly property var oledPages: ["clock", "now-playing", "workspace", "logo", "text", "claude", "system", "gpu", "clear"]
   readonly property var wheelModes: ["volume", "app", "workspace", "brightness", "oled", "rgb"]
   readonly property var mouseModes: ["match", "solid", "breathe", "cycle", "off", "device"]
+  // Keyboard colour presets for Favorites; the mouse follows in match mode.
+  readonly property var lightPresets: [
+    { label: "violet", color: "#4A1C90" },
+    { label: "teal", color: "#00806A" },
+    { label: "ice", color: "#7DD3FC" },
+    { label: "white", color: "#FFFFFF" },
+    { label: "orange", color: "#FF3C00" }
+  ]
+  readonly property var favoritePages: ["clock", "system", "claude", "now-playing"]
+  readonly property var tabs: [
+    { value: "favorites", label: "Favorites" },
+    { value: "mouse", label: "Mouse" },
+    { value: "keyboard", label: "Keyboard" }
+  ]
+
+  property string tab: "favorites"
 
   readonly property string pluginDir: Qt.resolvedUrl(".").toString().replace("file://", "").replace(/\/$/, "")
   readonly property string scriptDir: pluginDir + "/bin"
   readonly property string apexctl: scriptDir + "/apexctl"
 
-  property var queuedAction: null
+  readonly property var mouse: root.status.mouse || null
+  readonly property bool mousePresent: !!(root.mouse && root.mouse.present)
+
+  property var queue: []
 
   function apex(args) {
+    // Commands run one at a time, in order, so no click is ever dropped (a
+    // preset sends two).
     if (actionProc.running) {
-      // A previous command is still finishing; queue this one so no click is
-      // ever dropped.
-      root.queuedAction = args
+      root.queue = root.queue.concat([args])
       return
     }
     actionProc.command = [root.apexctl].concat(args)
@@ -50,9 +69,20 @@ Panel {
 
   // Unset mouse brightness follows the keyboard in match mode.
   function mouseBrightness() {
-    var m = root.status.mouse || {}
+    var m = root.mouse || {}
     if (m.brightness !== null && m.brightness !== undefined) return Number(m.brightness)
     return m.mode === "match" ? Number(root.status.rgb && root.status.rgb.brightness || 80) : 100
+  }
+
+  function setBrightnessBoth(value) {
+    root.apex(["rgb", "-b", String(value)])
+    if (root.mouse && root.mouse.brightness !== null && root.mouse.brightness !== undefined)
+      root.apex(["mouse", "-b", String(value)])
+  }
+
+  function applyPreset(hex) {
+    root.apex(["rgb", "-c", hex])
+    if (root.mouse && root.mouse.mode !== "match") root.apex(["mouse", "match"])
   }
 
   function pretty(value) {
@@ -102,14 +132,41 @@ Panel {
     stdout: StdioCollector { waitForEnd: true }
     onRunningChanged: {
       if (running) return
-      if (root.queuedAction) {
-        var args = root.queuedAction
-        root.queuedAction = null
+      if (root.queue.length) {
+        var args = root.queue[0]
+        root.queue = root.queue.slice(1)
         root.apex(args)
       } else {
         root.refresh()
       }
     }
+  }
+
+  component Chip: Button {
+    foreground: root.bar.foreground
+    fontFamily: root.bar.fontFamily
+    fontSize: Style.font.caption
+    bordered: true
+  }
+
+  component Header: PanelSectionHeader {
+    foreground: root.bar.foreground
+    fontFamily: root.bar.fontFamily
+  }
+
+  component Note: Text {
+    width: parent.width
+    wrapMode: Text.WordWrap
+    color: root.bar.foreground
+    opacity: 0.65
+    font.family: root.bar.fontFamily
+    font.pixelSize: Style.font.caption
+  }
+
+  component Caption: Text {
+    color: root.bar.foreground
+    font.family: root.bar.fontFamily
+    font.pixelSize: Style.font.caption
   }
 
   implicitWidth: button.implicitWidth
@@ -136,7 +193,7 @@ Panel {
     bar: root.bar
     open: root.opened
     contentWidth: panel.fittedContentWidth(Style.space(420))
-    contentHeight: panel.fittedContentHeight(panelColumn.implicitHeight, Style.space(560))
+    contentHeight: panel.fittedContentHeight(panelColumn.implicitHeight, Style.space(600))
 
     ScrollView {
       id: scrollArea
@@ -167,14 +224,16 @@ Panel {
             anchors.verticalCenter: parent.verticalCenter
             spacing: 0
             Text {
-              text: root.status.short || "Apex"
+              text: (root.status.short || "Apex") + (root.mousePresent ? " + " + (root.mouse.short || "mouse") : "")
               color: root.bar.foreground
               font.family: root.bar.fontFamily
               font.pixelSize: Style.font.title
               font.bold: true
             }
             Text {
-              text: root.status.daemon === false ? "daemon offline" : root.pretty(root.status.rgb && root.status.rgb.mode)
+              text: root.status.daemon === false ? "daemon offline"
+                : root.pretty(root.status.rgb && root.status.rgb.mode)
+                  + (root.mousePresent && root.mouse.dpi ? "  ·  " + root.mouse.dpi + " DPI" : "")
               color: root.bar.foreground
               opacity: 0.7
               font.family: root.bar.fontFamily
@@ -183,200 +242,290 @@ Panel {
           }
         }
 
-        Button {
+        Chip {
           visible: root.status.daemon === false
           text: installProc.running ? "Setting up…" : "Set up background service"
-          foreground: root.bar.foreground
-          fontFamily: root.bar.fontFamily
-          fontSize: Style.font.caption
-          bordered: true
           onClicked: root.setup()
         }
 
-        PanelSeparator { foreground: root.bar.foreground }
-        PanelSectionHeader { text: "RGB"; foreground: root.bar.foreground; fontFamily: root.bar.fontFamily }
-
-        Flow {
-          width: parent.width
-          spacing: Style.spacing.xs
-          Repeater {
-            // Reactive needs keystroke access, which the Gen 3 udev rule withholds.
-            model: root.rgbModes.filter(m => !(m === "reactive" && root.status.rgb_backend === "hid"))
-            Button {
-              required property string modelData
-              text: root.pretty(modelData)
-              foreground: root.bar.foreground
-              fontFamily: root.bar.fontFamily
-              fontSize: Style.font.caption
-              bordered: true
-              active: root.status.rgb && root.status.rgb.mode === modelData
-              onClicked: root.apex(["rgb", modelData])
-            }
-          }
-        }
-
-        Row {
-          width: parent.width
-          spacing: Style.spacing.xs
-          Button {
-            text: "Dim"
-            foreground: root.bar.foreground
-            fontFamily: root.bar.fontFamily
-            fontSize: Style.font.caption
-            bordered: true
-            onClicked: root.apex(["rgb", "-b", String(Math.max(10, Number(root.status.rgb && root.status.rgb.brightness || 80) - 15))])
-          }
-          Button {
-            text: "Bright"
-            foreground: root.bar.foreground
-            fontFamily: root.bar.fontFamily
-            fontSize: Style.font.caption
-            bordered: true
-            onClicked: root.apex(["rgb", "-b", String(Math.min(100, Number(root.status.rgb && root.status.rgb.brightness || 80) + 15))])
-          }
-          Button {
-            text: "Theme colors"
-            foreground: root.bar.foreground
-            fontFamily: root.bar.fontFamily
-            fontSize: Style.font.caption
-            bordered: true
-            onClicked: root.apex(["rgb", "theme"])
-          }
-        }
-
-        PanelSeparator { foreground: root.bar.foreground }
-        PanelSectionHeader { text: "GRADIENT PROFILES"; foreground: root.bar.foreground; fontFamily: root.bar.fontFamily }
-
-        Flow {
-          width: parent.width
-          spacing: Style.spacing.xs
-          Repeater {
-            model: root.rgbProfiles
-            Button {
-              required property string modelData
-              text: root.pretty(modelData)
-              foreground: root.bar.foreground
-              fontFamily: root.bar.fontFamily
-              fontSize: Style.font.caption
-              bordered: true
-              active: root.status.rgb && root.status.rgb.mode === "gradient" && root.status.rgb.profile === modelData
-              onClicked: root.apex(["rgb", "gradient", "-p", modelData])
-            }
-          }
-        }
-
-        PanelSeparator { foreground: root.bar.foreground }
-        PanelSectionHeader { text: "OLED"; foreground: root.bar.foreground; fontFamily: root.bar.fontFamily }
-
-        Flow {
-          width: parent.width
-          spacing: Style.spacing.xs
-          Repeater {
-            model: root.oledPages
-            Button {
-              required property string modelData
-              text: root.pretty(modelData)
-              foreground: root.bar.foreground
-              fontFamily: root.bar.fontFamily
-              fontSize: Style.font.caption
-              bordered: true
-              active: root.status.oled && root.status.oled.page === modelData
-              onClicked: root.apex(["oled", modelData])
-            }
-          }
-        }
-
-        PanelSeparator { foreground: root.bar.foreground }
-        PanelSectionHeader { text: "WHEEL"; foreground: root.bar.foreground; fontFamily: root.bar.fontFamily }
-
-        Flow {
-          width: parent.width
-          spacing: Style.spacing.xs
-          Repeater {
-            model: root.wheelModes
-            Button {
-              required property string modelData
-              text: root.pretty(modelData)
-              foreground: root.bar.foreground
-              fontFamily: root.bar.fontFamily
-              fontSize: Style.font.caption
-              bordered: true
-              active: root.status.wheel && root.status.wheel.mode === modelData
-              onClicked: root.apex(["wheel", modelData])
-            }
-          }
-        }
-
-        Text {
-          width: parent.width
-          wrapMode: Text.WordWrap
-          text: "Volume stays the default. Switch the wheel to workspaces, brightness, OLED pages, or RGB effects. Click the wheel to mute / cycle."
-          color: root.bar.foreground
-          opacity: 0.65
-          font.family: root.bar.fontFamily
-          font.pixelSize: Style.font.caption
-        }
-
-        PanelSeparator { visible: !!root.status.mouse; foreground: root.bar.foreground }
-        PanelSectionHeader {
-          visible: !!root.status.mouse
-          text: "MOUSE"
+        ButtonGroup {
+          options: root.tabs
+          value: root.tab
           foreground: root.bar.foreground
           fontFamily: root.bar.fontFamily
+          fontSize: Style.font.caption
+          focusable: false
+          onChanged: function(value) { root.tab = value }
         }
 
-        Flow {
-          visible: !!root.status.mouse
+        // ── Favorites ────────────────────────────────────────────────
+        Column {
+          visible: root.tab === "favorites"
           width: parent.width
-          spacing: Style.spacing.xs
-          Repeater {
-            model: root.mouseModes
-            Button {
-              required property string modelData
-              text: modelData === "match" ? "match keyboard" : root.pretty(modelData)
-              foreground: root.bar.foreground
-              fontFamily: root.bar.fontFamily
-              fontSize: Style.font.caption
-              bordered: true
-              active: root.status.mouse && root.status.mouse.mode === modelData
-              onClicked: root.apex(["mouse", modelData])
+          spacing: Style.space(14)
+
+          Header { text: "BRIGHTNESS" }
+          PanelSlider {
+            width: parent.width
+            bar: root.bar
+            minimum: 0
+            maximum: 100
+            step: 5
+            integer: true
+            value: Number(root.status.rgb && root.status.rgb.brightness || 80)
+            onReleased: function(value) { root.setBrightnessBoth(Math.round(value)) }
+          }
+
+          Header { text: "LIGHTING" }
+          Flow {
+            width: parent.width
+            spacing: Style.spacing.xs
+            Chip {
+              text: "theme"
+              active: root.status.rgb && root.status.rgb.mode === "theme"
+              onClicked: { root.apex(["rgb", "theme"]); if (root.mouse && root.mouse.mode !== "match") root.apex(["mouse", "match"]) }
+            }
+            Repeater {
+              model: root.lightPresets
+              Chip {
+                required property var modelData
+                text: modelData.label
+                active: root.status.rgb && root.status.rgb.mode === "solid"
+                  && String(root.status.rgb.solid).toUpperCase() === modelData.color
+                onClicked: root.applyPreset(modelData.color)
+              }
+            }
+            Chip {
+              text: "rainbow"
+              active: root.status.rgb && root.status.rgb.mode === "rainbow"
+              onClicked: root.apex(["rgb", "rainbow"])
+            }
+          }
+
+          Header { visible: root.mousePresent && !!root.mouse.dpi_presets; text: "MOUSE DPI" }
+          Flow {
+            visible: root.mousePresent && !!root.mouse.dpi_presets
+            width: parent.width
+            spacing: Style.spacing.xs
+            Repeater {
+              model: root.mouse && root.mouse.dpi_presets || []
+              Chip {
+                required property var modelData
+                text: String(modelData)
+                active: root.mouse && root.mouse.dpi === modelData
+                onClicked: root.apex(["mouse", "--dpi", String(modelData)])
+              }
+            }
+          }
+
+          Header { text: "OLED" }
+          Flow {
+            width: parent.width
+            spacing: Style.spacing.xs
+            Repeater {
+              model: root.favoritePages
+              Chip {
+                required property string modelData
+                text: root.pretty(modelData)
+                active: root.status.oled && root.status.oled.page === modelData
+                onClicked: root.apex(["oled", modelData])
+              }
+            }
+          }
+
+          Header { text: "WHEEL" }
+          Flow {
+            width: parent.width
+            spacing: Style.spacing.xs
+            Repeater {
+              model: ["volume", "app", "workspace"]
+              Chip {
+                required property string modelData
+                text: root.pretty(modelData)
+                active: root.status.wheel && root.status.wheel.mode === modelData
+                onClicked: root.apex(["wheel", modelData])
+              }
             }
           }
         }
 
-        Row {
-          visible: !!root.status.mouse
+        // ── Mouse ────────────────────────────────────────────────────
+        Column {
+          visible: root.tab === "mouse"
           width: parent.width
-          spacing: Style.spacing.xs
-          Button {
-            text: "Dim"
-            foreground: root.bar.foreground
-            fontFamily: root.bar.fontFamily
-            fontSize: Style.font.caption
-            bordered: true
-            onClicked: root.apex(["mouse", "-b", String(Math.max(10, root.mouseBrightness() - 15))])
+          spacing: Style.space(14)
+
+          Note {
+            visible: !root.mousePresent
+            text: "No Logitech mouse reachable" + (root.mouse && root.mouse.error ? ": " + root.mouse.error : "") + "."
           }
-          Button {
-            text: "Bright"
-            foreground: root.bar.foreground
-            fontFamily: root.bar.fontFamily
-            fontSize: Style.font.caption
-            bordered: true
-            onClicked: root.apex(["mouse", "-b", String(Math.min(100, root.mouseBrightness() + 15))])
+
+          Header { text: "LIGHTING" }
+          Flow {
+            width: parent.width
+            spacing: Style.spacing.xs
+            Repeater {
+              model: root.mouseModes
+              Chip {
+                required property string modelData
+                text: modelData === "match" ? "match keyboard" : root.pretty(modelData)
+                active: root.mouse && root.mouse.mode === modelData
+                onClicked: root.apex(["mouse", modelData])
+              }
+            }
+          }
+          PanelSlider {
+            width: parent.width
+            bar: root.bar
+            minimum: 0
+            maximum: 100
+            step: 5
+            integer: true
+            value: root.mouseBrightness()
+            onReleased: function(value) { root.apex(["mouse", "-b", String(Math.round(value))]) }
+          }
+          Note {
+            text: "Match follows the keyboard's colour. The mouse goes dark when you are away and breathes orange while Claude waits."
+          }
+
+          Header { visible: root.mousePresent && !!root.mouse.dpi; text: "DPI" }
+          Row {
+            visible: root.mousePresent && !!root.mouse.dpi
+            width: parent.width
+            spacing: Style.spacing.md
+            PanelSlider {
+              id: dpiSlider
+              width: parent.width - dpiLabel.width - parent.spacing
+              anchors.verticalCenter: parent.verticalCenter
+              bar: root.bar
+              minimum: root.mouse && root.mouse.dpi_min || 100
+              maximum: root.mouse && root.mouse.dpi_max || 25600
+              step: root.mouse && root.mouse.dpi_step || 50
+              integer: true
+              value: root.mouse && root.mouse.dpi || 1600
+              onReleased: function(value) { root.apex(["mouse", "--dpi", String(Math.round(value))]) }
+            }
+            Caption {
+              id: dpiLabel
+              width: Style.space(56)
+              anchors.verticalCenter: parent.verticalCenter
+              horizontalAlignment: Text.AlignRight
+              text: Math.round(dpiSlider.liveValue)
+            }
+          }
+          Flow {
+            visible: root.mousePresent && !!root.mouse.dpi_presets
+            width: parent.width
+            spacing: Style.spacing.xs
+            Repeater {
+              model: root.mouse && root.mouse.dpi_presets || []
+              Chip {
+                required property var modelData
+                text: String(modelData)
+                active: root.mouse && root.mouse.dpi === modelData
+                onClicked: root.apex(["mouse", "--dpi", String(modelData)])
+              }
+            }
+          }
+
+          Header { visible: root.mousePresent && !!(root.mouse.buttons && root.mouse.buttons.length); text: "BUTTONS" }
+          Repeater {
+            model: root.mousePresent && root.mouse.buttons || []
+            Dropdown {
+              required property var modelData
+              width: parent.width
+              label: modelData.label
+              value: modelData.action
+              options: root.mouse.button_actions || []
+              foreground: root.bar.foreground
+              fontFamily: root.bar.fontFamily
+              onChanged: function(value) { root.apex(["mouse", "--button", modelData.id + "=" + value]) }
+            }
           }
         }
 
-        Text {
-          visible: !!root.status.mouse
+        // ── Keyboard ─────────────────────────────────────────────────
+        Column {
+          visible: root.tab === "keyboard"
           width: parent.width
-          wrapMode: Text.WordWrap
-          text: root.status.mouse && root.status.mouse.present
-            ? (root.status.mouse.name || "Logitech mouse") + " follows the keyboard in match mode, goes dark when you are away, and breathes orange while Claude waits."
-            : "No Logitech mouse reachable" + (root.status.mouse && root.status.mouse.error ? ": " + root.status.mouse.error : "") + "."
-          color: root.bar.foreground
-          opacity: 0.65
-          font.family: root.bar.fontFamily
-          font.pixelSize: Style.font.caption
+          spacing: Style.space(14)
+
+          Header { text: "RGB" }
+          Flow {
+            width: parent.width
+            spacing: Style.spacing.xs
+            Repeater {
+              // Reactive needs keystroke access, which the Gen 3 udev rule withholds.
+              model: root.rgbModes.filter(m => !(m === "reactive" && root.status.rgb_backend === "hid"))
+              Chip {
+                required property string modelData
+                text: root.pretty(modelData)
+                active: root.status.rgb && root.status.rgb.mode === modelData
+                onClicked: root.apex(["rgb", modelData])
+              }
+            }
+          }
+          PanelSlider {
+            width: parent.width
+            bar: root.bar
+            minimum: 0
+            maximum: 100
+            step: 5
+            integer: true
+            value: Number(root.status.rgb && root.status.rgb.brightness || 80)
+            onReleased: function(value) { root.apex(["rgb", "-b", String(Math.round(value))]) }
+          }
+
+          PanelSeparator { foreground: root.bar.foreground }
+          Header { text: "GRADIENT PROFILES" }
+          Flow {
+            width: parent.width
+            spacing: Style.spacing.xs
+            Repeater {
+              model: root.rgbProfiles
+              Chip {
+                required property string modelData
+                text: root.pretty(modelData)
+                active: root.status.rgb && root.status.rgb.mode === "gradient" && root.status.rgb.profile === modelData
+                onClicked: root.apex(["rgb", "gradient", "-p", modelData])
+              }
+            }
+          }
+
+          PanelSeparator { foreground: root.bar.foreground }
+          Header { text: "OLED" }
+          Flow {
+            width: parent.width
+            spacing: Style.spacing.xs
+            Repeater {
+              model: root.oledPages
+              Chip {
+                required property string modelData
+                text: root.pretty(modelData)
+                active: root.status.oled && root.status.oled.page === modelData
+                onClicked: root.apex(["oled", modelData])
+              }
+            }
+          }
+
+          PanelSeparator { foreground: root.bar.foreground }
+          Header { text: "WHEEL" }
+          Flow {
+            width: parent.width
+            spacing: Style.spacing.xs
+            Repeater {
+              model: root.wheelModes
+              Chip {
+                required property string modelData
+                text: root.pretty(modelData)
+                active: root.status.wheel && root.status.wheel.mode === modelData
+                onClicked: root.apex(["wheel", modelData])
+              }
+            }
+          }
+          Note {
+            text: "Volume stays the default. Switch the wheel to workspaces, brightness, OLED pages, or RGB effects. Click the wheel to mute / cycle."
+          }
         }
       }
     }

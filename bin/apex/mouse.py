@@ -29,6 +29,7 @@ TIMEOUT = 0.6
 
 ROOT = 0x0000
 DEVICE_NAME = 0x0005
+ADJUSTABLE_DPI = 0x2201
 COLOR_LED_EFFECTS = 0x8070
 
 # 0x8070 effect IDs and where their parameters go (Solaar's LEDEffects table).
@@ -176,6 +177,28 @@ class Hidpp:
         return out.rstrip(b"\0").decode("utf-8", "replace")
 
 
+def parse_dpi_list(values):
+    """(min, max, step) from a 0x2201 DPI list: plain values, or low, 0xE000|step, high."""
+    out, step = [], None
+    values = list(values)
+    i = 0
+    while i < len(values) and values[i]:
+        v = values[i]
+        if v >> 13 == 0x7 and out and i + 1 < len(values):
+            step = v & 0x1FFF
+            out.append(values[i + 1])
+            i += 2
+            continue
+        out.append(v)
+        i += 1
+    if not out:
+        return None
+    if step is None:
+        gaps = [b - a for a, b in zip(out, out[1:]) if b > a]
+        step = min(gaps) if gaps else 50
+    return min(out), max(out), step
+
+
 class Zone:
     def __init__(self, index, location, effects):
         self.index = index
@@ -204,6 +227,11 @@ class Mouse:
                     e = self.dev.request(self.leds, 2, bytes([z, i]))
                     effects[int.from_bytes(e[2:4], "big")] = i
                 self.zones.append(Zone(z, location, effects))
+            self.dpi_feature = self.dev.feature(ADJUSTABLE_DPI)
+            self.dpi_range = None
+            if self.dpi_feature:
+                raw = bytes(self.dev.request(self.dpi_feature, 1, b"\x00"))[1:]
+                self.dpi_range = parse_dpi_list(int.from_bytes(raw[i:i + 2], "big") for i in range(0, len(raw) - 1, 2))
         except OSError:
             self.dev.close()
             raise
@@ -213,6 +241,19 @@ class Mouse:
 
     def ping(self):
         self.dev.request(0, 0, ROOT.to_bytes(2, "big"))
+
+    def get_dpi(self):
+        if not self.dpi_feature:
+            return None
+        return int.from_bytes(self.dev.request(self.dpi_feature, 2, b"\x00")[1:3], "big")
+
+    def set_dpi(self, dpi):
+        if not self.dpi_range:
+            return None
+        low, high, step = self.dpi_range
+        dpi = max(low, min(high, low + round((int(dpi) - low) / step) * step))
+        self.dev.request(self.dpi_feature, 3, b"\x00" + dpi.to_bytes(2, "big"))
+        return dpi
 
     def set_effect(self, effect, color=(0, 0, 0), period=0, intensity=0, zones=None):
         """Apply one effect to every zone (or the named ones) that supports it."""
@@ -233,6 +274,7 @@ class Mouse:
             "name": self.name,
             "path": self.path,
             "zones": [{"index": z.index, "name": z.name, "effects": sorted(z.effects)} for z in self.zones],
+            "dpi_range": list(self.dpi_range) if self.dpi_range else None,
         }
 
 
@@ -270,6 +312,7 @@ MODES = ("match", "solid", "breathe", "cycle", "off", "device")
 BREATHE_MS = 4000
 CYCLE_MS = 10000
 CLAUDE_BREATHE_MS = 1600
+DPI_PRESETS = (400, 800, 1600, 3200, 6400)
 
 
 def wanted(cfg, palette, away=False, claude_waiting=False):
@@ -317,7 +360,12 @@ def wanted(cfg, palette, away=False, claude_waiting=False):
 
 
 class MouseLights:
-    """Keeps the mouse showing the latest wanted() spec, from a worker thread."""
+    """Keeps the mouse showing the latest wanted lighting and DPI, from a worker thread.
+
+    DPI also changes on the mouse itself (its DPI buttons). Each check reads it
+    back; a change made there shows up as `dpi_moved`, for the daemon to adopt
+    into the config so the mouse gets that DPI back after a power cycle.
+    """
 
     def __init__(self, opener=open_mouse, ping_seconds=PING_SECONDS, retry_seconds=RETRY_SECONDS):
         self.opener = opener
@@ -325,6 +373,10 @@ class MouseLights:
         self.retry_seconds = retry_seconds
         self.spec = None
         self.applied = None
+        self.dpi_wanted = None
+        self.dpi_applied = None
+        self.dpi = None
+        self.dpi_moved = False
         self.mouse = None
         self.info = None
         self.error = None
@@ -334,15 +386,21 @@ class MouseLights:
         self.thread = threading.Thread(target=self._run, name="apex-mouse", daemon=True)
         self.thread.start()
 
-    def want(self, spec):
-        if spec != self.spec:
+    def want(self, spec, dpi=None):
+        if spec != self.spec or dpi != self.dpi_wanted:
             self.spec = spec
+            self.dpi_wanted = dpi
             self.wake.set()
 
     def status(self):
         info = self.info or {}
-        return {"present": self.mouse is not None, "name": info.get("name"),
-                "zones": [z["name"] for z in info.get("zones", [])], "error": self.error}
+        out = {"present": self.mouse is not None, "name": info.get("name"),
+               "zones": [z["name"] for z in info.get("zones", [])], "error": self.error}
+        if self.mouse is not None and info.get("dpi_range"):
+            low, high, step = info["dpi_range"]
+            out.update(dpi=self.dpi, dpi_min=low, dpi_max=high, dpi_step=step,
+                       dpi_presets=[d for d in DPI_PRESETS if low <= d <= high])
+        return out
 
     def _drop(self, exc):
         self.error = str(exc)
@@ -350,28 +408,41 @@ class MouseLights:
             self.mouse.close()
         self.mouse = None
         self.applied = None
+        self.dpi_applied = None
+
+    def _sync(self, spec, dpi):
+        m = self.mouse
+        if spec is not None and spec != self.applied:
+            apply(m, spec)
+            self.applied = spec
+        if dpi is not None and dpi != self.dpi_applied:
+            self.dpi = self.dpi_applied = m.set_dpi(dpi)
+            return
+        current = m.get_dpi() if m.dpi_feature else None
+        if current is None:
+            m.ping()
+            return
+        if self.dpi_applied is not None and current != self.dpi_applied:
+            self.dpi_moved = True  # changed with the mouse's own buttons
+        self.dpi = self.dpi_applied = current
 
     def _run(self):
         while self.running:
-            spec = self.spec
+            spec, dpi = self.spec, self.dpi_wanted
             with self.lock:
                 try:
                     if self.mouse is None:
                         self.mouse = self.opener()
                         self.info = self.mouse.describe()
                         self.error = None
-                    if spec is not None and spec != self.applied:
-                        apply(self.mouse, spec)
-                        self.applied = spec
-                    elif self.applied is not None:
-                        self.mouse.ping()
+                    self._sync(spec, dpi)
                 except OSError as exc:
                     # Asleep, switched off, unplugged (or moved between cable and
                     # receiver) or not permitted: try again later. A mouse that
-                    # comes back shows its own lighting, so forgetting `applied`
-                    # makes the next success re-send ours.
+                    # comes back shows its own lighting and DPI, so forgetting
+                    # what was applied makes the next success re-send ours.
                     self._drop(exc)
-            if self.mouse is not None and self.spec != spec:
+            if self.mouse is not None and (self.spec, self.dpi_wanted) != (spec, dpi):
                 continue
             self.wake.wait(self.ping_seconds if self.mouse is not None else self.retry_seconds)
             self.wake.clear()

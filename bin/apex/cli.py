@@ -252,16 +252,16 @@ def cmd_wheel(args):
 
 def _local_mouse(cfg, req):
     from . import mouse as mousemod
-    for key in ("mode", "color", "brightness", "claude"):
+    for key in ("mode", "color", "brightness", "claude", "dpi"):
         if key in req:
             cfg["mouse"][key] = req[key]
     spec = mousemod.wanted(cfg, rgbmod.load_palette())
-    if spec is None:
-        print("mouse left on its own lighting")
-        return
     m = mousemod.open_mouse()
     try:
-        mousemod.apply(m, spec)
+        if spec is not None:
+            mousemod.apply(m, spec)
+        if cfg["mouse"].get("dpi"):
+            cfg["mouse"]["dpi"] = m.set_dpi(cfg["mouse"]["dpi"]) or cfg["mouse"]["dpi"]
         print(f"applied {cfg['mouse']['mode']} to {m.name}")
     finally:
         m.close()
@@ -296,6 +296,8 @@ def cmd_mouse(args):
         req["brightness"] = args.brightness
     if args.claude is not None:
         req["claude"] = args.claude
+    if args.dpi is not None:
+        req["dpi"] = args.dpi
     try:
         data = _dispatch_or_local(req, _local_mouse)
     except OSError as exc:
@@ -381,6 +383,7 @@ def build_parser():
     ms.add_argument("-b", "--brightness", type=int)
     ms.add_argument("--claude", action="store_true", default=None, help="breathe orange while Claude waits (default)")
     ms.add_argument("--no-claude", dest="claude", action="store_false")
+    ms.add_argument("--dpi", type=int, help="sensor DPI, e.g. 1600")
     ms.add_argument("--info", action="store_true", help="show the detected mouse, its zones and effects")
     ms.add_argument("--json", action="store_true")
     ms.set_defaults(func=cmd_mouse)

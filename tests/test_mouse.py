@@ -19,7 +19,8 @@ PALETTE = {"accent": (10, 20, 30), "green": (0, 200, 0)}
 class FakeMouse:
     """A HID++ 2.0 mouse with 0x8070: zone 0 primary, zone 1 logo (no breathe)."""
 
-    FEATURES = {0x0000: 0, 0x0005: 3, 0x8070: 9}
+    FEATURES = {0x0000: 0, 0x0005: 3, 0x2201: 5, 0x8070: 9}
+    dpi = 1600
     ZONES = [(1, [0x00, 0x01, 0x03, 0x0A]), (2, [0x00, 0x01])]
     NAME = b"G502 LIGHTSPEED"
 
@@ -62,6 +63,13 @@ class FakeMouse:
             elif feat == 9 and fn == 2:
                 effect = self.ZONES[p[0]][1][p[1]]
                 self._reply(msg, bytes([p[0], p[1], 0, effect]))
+            elif feat == 5 and fn == 1:
+                self._reply(msg, bytes([0, 0x00, 0x64, 0xE0, 0x32, 0x64, 0x00, 0, 0]))  # 100..25600 step 50
+            elif feat == 5 and fn == 2:
+                self._reply(msg, bytes([0]) + self.dpi.to_bytes(2, "big") + (1600).to_bytes(2, "big"))
+            elif feat == 5 and fn == 3:
+                self.dpi = int.from_bytes(p[1:3], "big")
+                self._reply(msg, p[:3])
             elif feat == 9 and fn == 3:
                 self.writes.append(bytes(p[:13]))
                 self._reply(msg, p[:13])
@@ -190,6 +198,39 @@ class Worker(unittest.TestCase):
         self.assertEqual(len(fake.writes), 4)
         self.assertTrue(lights.status()["present"])
         self.assertEqual(lights.status()["zones"], ["primary", "logo"])
+        lights.stop()
+
+
+class Dpi(unittest.TestCase):
+    def test_parse_list(self):
+        self.assertEqual(mouse.parse_dpi_list([100, 0xE032, 25600, 0]), (100, 25600, 50))
+        self.assertEqual(mouse.parse_dpi_list([400, 800, 1600, 0, 99]), (400, 1600, 400))
+        self.assertIsNone(mouse.parse_dpi_list([0]))
+
+    def test_set_snaps_to_step_and_range(self):
+        fake = FakeMouse()
+        m = fake.open()
+        self.assertEqual(m.dpi_range, (100, 25600, 50))
+        self.assertEqual(m.set_dpi(1234), 1250)
+        self.assertEqual(fake.dpi, 1250)
+        self.assertEqual(m.set_dpi(99999), 25600)
+        self.assertEqual(m.get_dpi(), 25600)
+
+    def test_worker_applies_and_notices_button_changes(self):
+        fake = FakeMouse(noise=False)
+        lights = mouse.MouseLights(fake.open, ping_seconds=0.05)
+        lights.want(None, 3200)
+        deadline = time.monotonic() + 2
+        while fake.dpi != 3200 and time.monotonic() < deadline:
+            time.sleep(0.01)
+        self.assertEqual(fake.dpi, 3200)
+        self.assertFalse(lights.dpi_moved)
+        fake.dpi = 800  # the DPI-down button
+        while not lights.dpi_moved and time.monotonic() < deadline:
+            time.sleep(0.01)
+        self.assertTrue(lights.dpi_moved)
+        self.assertEqual(lights.status()["dpi"], 800)
+        self.assertEqual(lights.status()["dpi_presets"], [400, 800, 1600, 3200, 6400])
         lights.stop()
 
 
