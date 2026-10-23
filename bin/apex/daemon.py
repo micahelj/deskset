@@ -31,6 +31,11 @@ from .layout import KEYCODE_TO_LED, LEDS, OLED_PAGES, RGB_MODES, WHEEL_MODES
 
 RGB_FPS = 24
 TOAST_SECONDS = 1.5  # OLED feedback for the app wheel
+# A chosen OLED page announces itself, then stays up this long even where the
+# Claude page would take over, so the change is visible.
+PAGE_TOAST_SECONDS = 0.9
+PAGE_PIN_SECONDS = 4.0
+PAGE_TITLES = {"now-playing": "Now playing", "gpu": "GPU", "oled": "OLED"}
 SYSTEM_CYCLE = 6.0  # seconds per CPU / GPU half of the system page
 OLED_MIN_DT = 0.12
 
@@ -64,6 +69,7 @@ class Daemon:
         self.gpu = gpumod.GpuMonitor()
         self.last_sample = 0.0
         self.toast_state = None  # (until, title, subtitle)
+        self.page_pin_until = 0.0
         self.appwheel = wheelapp.AppWheel(self._toast)
         self.lockwatch = presence.LockWatch()
         self.mouse = None
@@ -332,6 +338,8 @@ class Daemon:
             oled_cfg["image"] = req["image"]
             if "page" not in req:
                 oled_cfg["page"] = "logo"
+        if any(k in req for k in ("page", "next", "prev", "text", "image")):
+            self._page_changed()
         cfgmod.save(self.cfg)
         self._push_oled(force=True)
         return self.status()
@@ -381,6 +389,14 @@ class Daemon:
             pages = [current, *pages]
         idx = pages.index(current) if current in pages else 0
         self.cfg["oled"]["page"] = pages[(idx + delta) % len(pages)]
+        self._page_changed()
+
+    def _page_changed(self):
+        page = self.cfg["oled"]["page"]
+        now = time.monotonic()
+        title = PAGE_TITLES.get(page, page.replace("-", " ").capitalize())
+        self.toast_state = (now + PAGE_TOAST_SECONDS, title, "OLED page")
+        self.page_pin_until = now + PAGE_PIN_SECONDS
 
     def _cycle_rgb(self, delta):
         modes = [m for m in RGB_MODES if m != "off"]
@@ -557,6 +573,8 @@ class Daemon:
         page = self.cfg["oled"]["page"]
         if page == "claude" or not self.cfg["oled"].get("claude_auto", True):
             return page, None
+        if time.monotonic() < self.page_pin_until:
+            return page, None  # just chosen: show it before Claude takes over again
         summary = self._claude_summary()
         if summary["state"] in claude.ACTIVE or (summary["count"] and self._claude_focused()):
             return "claude", summary
