@@ -49,6 +49,7 @@ Panel {
     { label: "green", color: "#00FF40" },
     { label: "magenta", color: "#FF00C8" },
     { label: "orange", color: "#FF3C00" },
+    { label: "yellow", color: "#FFC800" },
     { label: "white", color: "#FFFFFF" }
   ]
   readonly property var favoritePages: ["clock", "system", "claude", "now-playing"]
@@ -309,6 +310,15 @@ Panel {
       cursorShape: Qt.PointingHandCursor
       onClicked: sw.clicked()
     }
+  }
+
+  component SwatchGrid: Grid {
+    id: grid
+    property int count: 0
+    width: parent.width
+    columns: grid.count > 8 ? Math.ceil(grid.count / 2) : Math.max(1, grid.count)
+    rowSpacing: Style.space(10)
+    readonly property real cell: (grid.width - grid.columnSpacing * (grid.columns - 1)) / grid.columns
   }
 
   // A wide gradient pill for a multi-colour profile.
@@ -585,10 +595,11 @@ Panel {
           }
 
           Header { text: "LIGHTING" }
-          Flow {
-            width: parent.width
-            spacing: Style.spacing.xs
+          SwatchGrid {
+            id: favSwatches
+            count: root.colorPresets.length + 2
             Swatch {
+              width: favSwatches.cell
               label: "theme"
               fill: Color.accent
               active: root.rgb.mode === "theme"
@@ -598,6 +609,7 @@ Panel {
               model: root.colorPresets
               Swatch {
                 required property var modelData
+                width: favSwatches.cell
                 label: modelData.label
                 fill: modelData.color
                 active: root.rgb.mode === "solid" && root.sameColor(root.rgb.solid, modelData.color)
@@ -605,6 +617,7 @@ Panel {
               }
             }
             Swatch {
+              width: favSwatches.cell
               label: "rainbow"
               stops: root.rainbow
               active: root.rgb.mode === "rainbow"
@@ -694,11 +707,12 @@ Panel {
               }
             }
           }
-          Flow {
+          SwatchGrid {
+            id: mouseSwatches
             visible: root.mouse && (root.mouse.mode === "solid" || root.mouse.mode === "breathe")
-            width: parent.width
-            spacing: Style.spacing.xs
+            count: root.colorPresets.length + 1
             Swatch {
+              width: mouseSwatches.cell
               label: "theme"
               fill: Color.accent
               active: root.mouse && root.mouse.color === "accent"
@@ -708,6 +722,7 @@ Panel {
               model: root.colorPresets
               Swatch {
                 required property var modelData
+                width: mouseSwatches.cell
                 label: modelData.label
                 fill: modelData.color
                 active: root.mouse && root.sameColor(root.mouse.color, modelData.color)
@@ -838,13 +853,14 @@ Panel {
           }
 
           Header { text: "COLOUR" }
-          Flow {
-            width: parent.width
-            spacing: Style.spacing.xs
+          SwatchGrid {
+            id: keySwatches
+            count: root.colorPresets.length
             Repeater {
               model: root.colorPresets
               Swatch {
                 required property var modelData
+                width: keySwatches.cell
                 label: modelData.label
                 fill: modelData.color
                 active: root.rgb.mode === "solid" && root.sameColor(root.rgb.solid, modelData.color)
