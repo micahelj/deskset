@@ -1,3 +1,3 @@
-"""Apex 7 TKL control: RGB, OLED, and the OLED scroll wheel."""
+"""Deskset: SteelSeries Apex keyboard (RGB, OLED, wheel) and Logitech mouse control."""
 
 __version__ = "1.0.0"

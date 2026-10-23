@@ -1,26 +1,49 @@
 <h1 align="center">Deskset</h1>
 
-<p align="center">Omarchy shell plugin for SteelSeries Apex keyboards:
-per-key RGB, the 128×40 OLED, and the OLED scroll wheel; plus Logitech mouse
-lighting, DPI and buttons. Began as a fork of Apex Keyboard.</p>
+<p align="center">Your SteelSeries Apex keyboard and Logitech mouse, run from the
+Omarchy bar: per-key lighting, the OLED screen and scroll wheel, mouse lighting,
+DPI and buttons, plus your desktop and Claude Code at a glance on the keyboard.</p>
 
-<p align="center"><img src="docs/media/claude-page.gif" alt="Animation of the OLED's Claude Code page through one prompt: Idle, Cogitating while it reads and edits files, Needs you for a Bash permission, then Done, with the 5-hour usage bar and its reset countdown along the bottom" width="536"></p>
+<p align="center"><img src="preview.png" alt="The Deskset panel's Favorites, Mouse and Keyboard tabs, with the OLED showing Claude Code at work and the hold-Super shortcut legend" width="860"></p>
 
-<p align="center"><sub>The OLED's <a href="#claude-code-activity">Claude Code page</a>,
-rendered by the plugin's own OLED code at 4× scale (not a photo of the
-keyboard). Regenerate with <code>python3 scripts/claude_preview.py</code>.</sub></p>
+## What it does
 
-## Supported keyboards
+- **Lighting:** theme-matched, solid, gradient, wave, breathe and rainbow
+  effects, with the mouse following the keyboard. See [Use it](#use-it).
+- **OLED pages:** clock, now playing, workspace, a [CPU/GPU monitor](#system-monitor),
+  [Claude Code activity](#claude-code-activity), your own text or image.
+- **Scroll wheel:** volume, workspaces or OLED pages, or [app-aware](#app-aware-wheel):
+  browser tabs or volume, terminal font size, per-app volume.
+- **[Workspace keys](#workspace-keys):** the number row shows your Hyprland
+  workspaces by colour.
+- **Shortcuts on the keys:** [hold Super](#hold-super-to-see-your-shortcuts)
+  to light every key that has a shortcut, or open the
+  [cheat sheet](#keybinding-cheat-sheet) and browse them with the wheel.
+- **Claude Code:** what it is doing and your 5-hour usage on the OLED, and
+  **Esc** flashes when it needs your permission.
+- **[Lights out when away](#lights-out-when-away):** dark while the screensaver
+  or a blanked lock screen is up.
+- **Mouse:** [lighting](#mouse-lighting), [DPI](#dpi) and
+  [button remapping](#buttons) stored in the mouse itself, including desktop
+  actions.
 
-| Keyboard | USB ID | OLED | RGB | Wheel |
-|---|---|---|---|---|
-| Apex 7 TKL | `1038:1618` | yes | via OpenRGB | yes |
-| Apex 7 | `1038:1612` | yes | via OpenRGB | yes |
-| Apex Pro TKL Gen 3 | `1038:1642` | yes | direct HID (no OpenRGB) | yes |
+## Supported hardware
 
-The connected keyboard is detected automatically. On the Apex Pro TKL Gen 3
-the `reactive` lighting mode is hidden, because it needs read access to the
-keystroke interfaces, which the Gen 3 udev rule deliberately withholds.
+| Device | USB ID | Support |
+|---|---|---|
+| SteelSeries Apex Pro TKL Gen 3 | `1038:1642` | OLED, per-key RGB (direct HID), wheel |
+| SteelSeries Apex 7 TKL | `1038:1618` | OLED, RGB via OpenRGB, wheel |
+| SteelSeries Apex 7 | `1038:1612` | OLED, RGB via OpenRGB, wheel |
+| Logitech G502 Lightspeed | `046d:c539` receiver, `046d:c08d` wired | lighting, DPI, buttons |
+
+The connected keyboard is detected automatically. Tested on hardware: the Apex
+Pro TKL Gen 3 and G502 Lightspeed. Apex 7 / Apex 7 TKL support comes from
+the original project and has not been re-tested here. Other Logitech HID++
+mice with lighting (feature 0x8070) may work, but need their own udev rule.
+
+On the Apex Pro TKL Gen 3 the `reactive` lighting mode is hidden, because it
+needs read access to the keystroke interfaces, which the Gen 3 udev rule
+deliberately withholds.
 
 ## Install
 
@@ -272,8 +295,13 @@ to close it; the wheel then goes back to its normal mode.
 Bind it to a shortcut in `~/.config/hypr/bindings.lua` (use your own path):
 
 ```lua
+-- [apex-cheatsheet]
 o.bind("SUPER + CTRL + SLASH", "Keyboard cheat sheet", "/home/YOU/.local/bin/apexctl cheatsheet")
+-- [/apex-cheatsheet]
 ```
+
+Keep the `-- [apex-cheatsheet]` marker lines: `uninstall` uses them to remove
+the binding again.
 
 Bindings come from `omarchy menu keybindings --print`, so the cheat sheet
 always reflects your current config. Mouse and media-key bindings have no
@@ -294,6 +322,7 @@ root-only), so Hyprland tells it when a modifier goes down or up. Add this to
 `~/.config/hypr/bindings.lua` (use your own path to `apexctl`):
 
 ```lua
+-- [apex-super]
 do
   local apexctl = "/home/YOU/.local/bin/apexctl"
   local mods = { [133] = "super", [134] = "super", [50] = "shift", [62] = "shift",
@@ -308,16 +337,18 @@ do
     end
   end)
 end
+-- [/apex-super]
 ```
 
-It uses key events rather than release binds because Hyprland skips a
+Keep the `-- [apex-super]` marker lines: `uninstall` uses them to remove
+the block again. It uses key events rather than release binds because Hyprland skips a
 release bind when another key was pressed in between, which would leave the
 overlay up after every Super shortcut.
 
 ## Claude Code activity
 
 The **claude** OLED page shows what [Claude Code](https://claude.com/claude-code)
-is doing, with a small pixel mascot (pictured at the top of this README):
+is doing, with a small pixel mascot:
 
 | State | Mascot | Text |
 |---|---|---|
@@ -327,13 +358,18 @@ is doing, with a small pixel mascot (pictured at the top of this README):
 | Reply finished (about 20 s) | blinks | `Done` |
 | Nothing happening | blinks | `Idle` · session count |
 
-<p align="center"><img src="docs/media/claude-page.png" alt="The page in four states: Hatching (running a tool), Needs you, Smooshing (between tools) and Idle" width="720"></p>
+<p align="center"><img src="docs/media/claude-page.gif" alt="Animation of the OLED's Claude Code page through one prompt: Idle, Cogitating while it reads and edits files, Needs you for a Bash permission, then Done, with the 5-hour usage bar and its reset countdown along the bottom" width="536"></p>
+
+<p align="center"><sub>Rendered by the plugin's own OLED code at 4× scale (not a
+photo of the keyboard). Regenerate with <code>python3 scripts/claude_preview.py</code>.</sub></p>
 
 While Claude is working, the first line shows a word picked fresh for each
 prompt (`Cogitating…`, `Noodling…`, `Percolating…`), much like Claude Code's
 own spinner, and it stays put until the turn ends. A session moved to Claude
 Code's background daemon is forked under a new id while the original process
-stays alive; the plugin counts that as one session, not two.
+stays alive; the plugin counts that as one session, not two. Idle sessions
+parked in that daemon are not open anywhere, so they are not counted until
+they start working again.
 
 Choosing another OLED page (panel, `apexctl oled`, or the wheel) flashes its
 name for about a second and then shows it for a few seconds even while a

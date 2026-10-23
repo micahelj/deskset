@@ -18,14 +18,17 @@ done
 rm -f "$HOME/.config/omarchy/hooks/theme-set.d/apply-keyboard-rgb"
 rm -f "$HOME/.config/omarchy/hooks/post-boot.d/apexctl"
 
-# Mouse desktop-action bindings added by `apexctl mouse --button`. The mouse's
-# onboard profile keeps its mapping; `apexctl mouse --restore-buttons` first
-# if you want the original buttons back.
+# Marked blocks in bindings.lua that call apexctl, which is gone now:
+# apex-mouse is added by `apexctl mouse --button` (the mouse's onboard profile
+# keeps its mapping; `apexctl mouse --restore-buttons` first if you want the
+# original buttons back), apex-super and apex-cheatsheet by hand from the README.
 bindings="$HOME/.config/hypr/bindings.lua"
-if [[ -f $bindings ]] && grep -q '\[apex-mouse\]' "$bindings"; then
-  sed -i '/^-- \[apex-mouse\]/,/^-- \[\/apex-mouse\]/d' "$bindings"
-  echo "Removed mouse bindings from $bindings"
-fi
+for block in apex-mouse apex-super apex-cheatsheet; do
+  if [[ -f $bindings ]] && grep -q "^-- \[$block\]" "$bindings"; then
+    sed -i "/^-- \[$block\]/,/^-- \[\/$block\]/d" "$bindings"
+    echo "Removed the $block block from $bindings"
+  fi
+done
 
 echo "Done. Then run: omarchy plugin remove io.github.micahelj.deskset"
 echo "User config kept at ~/.config/omarchy/apex.json"

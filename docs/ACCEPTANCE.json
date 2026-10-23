@@ -1,6 +1,6 @@
 {
   "omarchyVersion": "4.0.6-1",
-  "portableChecks": "./tests/run passed (4 structure checks, 9 Python tests) and omarchy plugin validate . passed on 2026-10-22.",
+  "portableChecks": "./tests/run passed (133 Python tests plus structure checks) and omarchy plugin validate . passed on 2026-10-23.",
   "liveChecks": [
     {
       "date": "2026-10-22",
@@ -12,6 +12,19 @@
         "wheel": "OLED-page mode scrolls both directions and click advances; workspace mode switches workspaces after the Lua dispatcher fix; volume default unaffected.",
         "setup": "Widget no longer installs on load; Set up button installs the service, which starts at login.",
         "reactive": "Not available on Gen 3 by design: the udev rule keeps keystroke interfaces root-only."
+      }
+    },
+    {
+      "date": "2026-10-23",
+      "device": "SteelSeries Apex Pro TKL Gen 3 (1038:1642, firmware 1.19.7); Logitech G502 Lightspeed (receiver 046d:c539 and wired 046d:c08d)",
+      "hyprland": "0.56.2 (Lua config)",
+      "results": {
+        "workspaceKeys": "Number row follows workspaces 1-10 by colour from the event socket.",
+        "awayDark": "Keyboard and OLED go dark with the screensaver and a blanked lock screen; waking the lock screen lights the keyboard.",
+        "claude": "Claude page tracks sessions through the hooks; Esc flashes while a session waits for permission; 5-hour usage bar and reset countdown shown; idle background-daemon sessions are not counted.",
+        "cheatsheet": "Bound keys light by category; holding Super shows the held layer after 0.25 s and clears on release, including after Super+Shift.",
+        "mouse": "Lighting follows the keyboard; DPI set and restored; onboard-profile button remapping, desktop actions (F13-F18) and button identify work.",
+        "panel": "Favorites, Mouse and Keyboard tabs render and drive the daemon."
       }
     }
   ],
